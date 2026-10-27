@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<link rel="icon" href="data:," />
+<title>黑凤梨</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #050505; color: #eee9df; font: 12px/1.4 ui-monospace, Menlo, monospace; overflow: hidden; }
+  #player { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: #050505; }
+  #player.landscape-layout { inset: auto; left: 50%; top: 50%; width: 100vh; width: 100dvh; height: 100vw; height: 100dvw; transform: translate(-50%, -50%) rotate(90deg); transform-origin: center; }
+  #wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; container-type: size; }
+  #c, #hdr-c { width: 100%; height: 100%; object-fit: contain; background: #000; cursor: pointer; }
+  #ui { flex: none; padding: 6px max(12px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); box-sizing: border-box; background: #0b0b0c; }
+  body.ui-hidden #ui { display: none; }
+  #show-ui { display: none; position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 4; background: #191817dd; }
+  #controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 6px; }
+  button { font: inherit; color: #eee9df; border: 1px solid #48433d; background: #191817; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+  button:hover, button:focus-visible { border-color: #ff4d12; }
+  button[aria-pressed="true"] { color: #ff865b; border-color: #a84d2c; }
+  @media (pointer: coarse) {
+    button { min-height: 44px; padding: 6px 10px; touch-action: manipulation; }
+    body.ui-hidden #show-ui { display: inline-flex; align-items: center; }
+    #scrub { height: 28px; }
+  }
+  #hdr-tune { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: #9c978f; }
+  #hdr-tune[hidden] { display: none; }
+  #hdr-tune label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #hdr-tune input { width: 96px; margin: 0; accent-color: #ff4d12; }
+  #hdr-tune output { min-width: 3.5em; color: #eee9df; }
+  #status { color: #ffae8f; }
+  #fullscreen { margin-left: auto; }
+  #scrub { width: 100%; margin: 0; accent-color: #ff4d12; }
+  #marks { position: relative; height: 16px; }
+  .mark { position: absolute; top: 0; height: 14px; border-left: 1px solid #ff4d12; color: #9c978f; font-size: 9px; overflow: hidden; white-space: nowrap; padding-left: 2px; cursor: pointer; box-sizing: border-box; }
+  .mark:hover { color: #eee9df; background: #ff4d1222; }
+  #info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #9c978f; }
+  #errs { display: none; position: fixed; top: 8px; left: 8px; right: 8px; max-height: 40vh; overflow: auto; background: #300; color: #fbb; padding: 8px; white-space: pre-wrap; z-index: 9; }
+  #loading { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; background: #050505; }
+  #loading[hidden] { display: none; }
+  #loading-panel { width: min(440px, 85vw); text-align: center; }
+  #loading-panel h1 { font-size: 18px; font-weight: 500; }
+  #loading-text { color: #9c978f; }
+  #loading-progress { width: 100%; height: 8px; accent-color: #ff4d12; }
+  body.export #ui, body.export #errs, body.export #show-ui { display: none !important; }
+  body.export #wrap { flex: none; position: absolute; inset: 0; }
+  body.export #c { width: 1920px; height: 1080px; max-width: none; max-height: none; }
+</style>
+</head>
+<body>
+<div id="loading" role="status" aria-live="polite">
+  <div id="loading-panel">
+    <h1>Preparing preview</h1>
+    <p id="loading-text">Loading scenes and fonts…</p>
+    <progress id="loading-progress" aria-label="Preview preparation"></progress>
+  </div>
+</div>
+<div id="player">
+<div id="wrap"><canvas id="c"></canvas></div>
+<button id="show-ui" type="button" aria-controls="ui" title="Restore playback controls">Show controls</button>
+<div id="ui" inert>
+  <div id="controls" role="group" aria-label="Preview controls">
+    <button id="play" type="button" title="Play / pause (Space)">Play</button>
+    <button id="resolution" type="button" title="Switch render resolution (R); reloads at the current time">1080p (Switch to 2160p)</button>
+    <button id="detail" type="button" title="Cycle 3D detail (Q)">3D detail: Auto</button>
+    <button id="motion-blur" type="button" aria-pressed="false" title="Toggle scene motion blur (B)">Motion blur: Off</button>
+    <button id="grain" type="button" aria-pressed="false" title="Toggle film grain (G)">Film grain: Off</button>
+    <button id="hdr" type="button" aria-pressed="false" title="Experimental HDR display; switching reloads at the current time">HDR: Off</button>
+    <span id="hdr-tune" hidden>
+      <button id="hdr-card" type="button" aria-pressed="false" title="Show boxes at multiples of SDR white instead of the picture, to find this display's headroom">Test card</button>
+      <label title="Peak brightness as a multiple of SDR white. Lower it until the brightest highlights stop clipping on this display.">Headroom <input id="hdr-headroom" type="range" min="1" step="0.01" /> <output id="hdr-headroom-value" for="hdr-headroom"></output></label>
+      <label title="How far the glow (light above SDR white) reaches into Display-P3. Flat colour keeps its SDR hue; 0% keeps every colour as in SDR.">P3 glow <input id="hdr-gamut" type="range" min="0" max="1" step="0.05" /> <output id="hdr-gamut-value" for="hdr-gamut"></output></label>
+      <label title="Colour of the hottest orange: 0% lets it turn yellow as it gets brighter (as in SDR), 100% keeps it the same orange.">Hold hue <input id="hdr-hue" type="range" min="0" max="1" step="0.05" /> <output id="hdr-hue-value" for="hdr-hue"></output></label>
+      <label title="How much of the soft halo around bright things is removed: 0% is the SDR amount, higher removes more.">Trim glow <input id="hdr-glow" type="range" min="0" max="1" step="0.05" /> <output id="hdr-glow-value" for="hdr-glow"></output></label>
+    </span>
+    <button id="hide-ui" type="button" title="Tap the picture or press H to show controls again">Hide controls</button>
+    <span id="status" role="status"></span>
+    <button id="fullscreen" type="button" title="Toggle fullscreen (F)">Fullscreen</button>
+  </div>
+  <div id="marks"></div>
+  <input id="scrub" type="range" min="0" value="0" aria-label="Playback position" />
+  <div id="info"></div>
+</div>
+</div>
+<pre id="errs"></pre>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

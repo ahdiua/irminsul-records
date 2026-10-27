@@ -1,0 +1,15 @@
+# python env + caches
+.venv/
+__pycache__/
+*.pyc
+
+# media and heavy intermediates (the master m4a is kept: the player plays it)
+*.wav
+*.mp3
+*.mp4
+build/
+out/
+
+# app
+app/node_modules/
+app/dist/

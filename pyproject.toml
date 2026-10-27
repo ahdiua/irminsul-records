@@ -1,0 +1,18 @@
+[project]
+name = "irminsul-records-pipeline"
+version = "0.1.0"
+description = "Narration, score, art and data pipeline for the Irminsul Records Teyvat chronicle video"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "soundfile>=0.13",
+    "edge-tts>=7.0",
+    "fonttools>=4.55",
+    "pillow>=11.0",
+    "matplotlib>=3.9",
+    "pyloudnorm>=0.1.1",
+]
+
+[tool.uv]
+package = false

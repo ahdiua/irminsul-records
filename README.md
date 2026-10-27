@@ -6,8 +6,10 @@
 
 ## 成片
 
-- `out/irminsul-records-4k.mp4`：4K60，HEVC Main10，AAC 256k。
-- `out/draft-1080.mp4`：1080p 草稿。
+- `out/irminsul-records-4k.mp4`：3840×2160，60 fps，HEVC Main10，AAC 256k，13 分 34 秒，约 2.0 GB。
+- `out/irminsul-records-1080p.mp4`：从 4K 母版缩放的 1080p60 H.264 版本，方便上传和分享，约 1.2 GB。
+- `out/cover.jpg`（1920×1080）和 `out/cover-4k.png`：视频封面，取自片头标题卡。
+- 4K 母版由 `pipeline/render_final.ps1` 渲染：分 4 段并行渲染，再无损拼接。
 
 ## 结构
 

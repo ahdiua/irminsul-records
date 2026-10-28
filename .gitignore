@@ -6,7 +6,7 @@ secrets/
 __pycache__/
 *.pyc
 
-# media and heavy intermediates (the master m4a is kept: the player plays it)
+# media and heavy intermediates (audio/ is kept: the renders mux the m4a, the player plays the opus)
 *.wav
 *.mp3
 *.mp4

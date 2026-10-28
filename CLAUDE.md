@@ -73,9 +73,9 @@ cd app; bunx tsc --noEmit -p .
 $env:PDOOM_NO_HMR=1; bunx --bun vite --port 5190 --strictPort --host 127.0.0.1     # keep one running: render.ts's
                                                                                   # private server times out here
 bun scripts/render.ts stills --url http://127.0.0.1:5190 --t 58.4,122.5 --out ../out/wip/x
-bun scripts/render.ts video --url http://127.0.0.1:5190 --samples 1 --codec hevc_nvenc --cq 22 --out ../out/draft-1080.mp4
 pwsh -File pipeline/render_final.ps1      # 4K60 HEVC Main10 NVENC, 4 parallel quarters -> out/teyvat-chronicle-4k.mp4 (~45 min)
 ```
+The finished film is the 4K render only: the user wants no 1080p version of it (2026-10-28).
 The preview may run with `--host 0.0.0.0` (the user opens it over ZeroTier, 192.168.168.87:5190).
 After changing the script: tts → assemble → fonts → music → mix (times move; pictures follow by id).
 

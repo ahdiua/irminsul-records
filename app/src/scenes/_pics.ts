@@ -168,7 +168,24 @@ export const PICS: Record<string, PicDef> = {
   },
   irminsul: {
     sky: (k) => night({ top: hx('#020610'), mid: hx('#062031'), hor: hx('#0d3a48'), horY: 820, stars: 1, neb: 0.8, nebA: hx('#1f8a8f', 0.55), nebB: hx('#2d3f8f', 0.5), glow: [960, 520, 340], glowCol: hx('#57d6c8', 0.25 + 0.05 * Math.sin(k.t)) }),
-    back: (ink, k) => { ink.d = 0.6; drawTree(ink, IRMIN, 1, mul(E.anemo, 1.25), mixc(E.anemo, E.goldHot, 0.5), k.t); ink.d = 1; },
+    back: (ink, k) => {
+      ink.d = 0.6; drawTree(ink, IRMIN, 1, mul(E.anemo, 1.25), mixc(E.anemo, E.goldHot, 0.5), k.t);
+      // 「从世界之外到来的存在」: lights fall from beyond the sky through the tree and leave nothing behind
+      ink.d = 0.4;
+      const fall = (x0: number, x1: number, te: number, col: RGB) => {
+        const u = k.at(te, 3.4);
+        if (u <= 0 || u >= 1) return;
+        const tail: P2[] = [];
+        for (let s = 0; s <= 14; s++) { const v = Math.max(0, u - s * 0.03); tail.push([lerp(x0, x1, v), lerp(-60, 960, ease.inQuad(v))]); }
+        const a = smoothstep(0, 0.08, u) * (1 - smoothstep(0.82, 1, u));
+        ink.glow(tail, 2.2, col, 0.85 * a);
+        ink.dot(tail[0]!, 5, mul(col, 3), a);
+      };
+      fall(260, 780, k.L(2) + 2.4, mul(E.goldHot, 1.6));
+      fall(1720, 1180, k.L(2) + 3.6, mul(E.cryo, 1.6));
+      fall(1180, 1560, k.L(3) + 1.0, mul(E.abyss, 2.2));
+      ink.d = 1;
+    },
     land: { layers: [
       LY((c) => S.ridge(c, 900, 160, 260, 3, 0.7), 0.5, hx('#06131c'), hx('#3fbfb0', 0.7), { fog: 0.45 }),
       LY((c) => S.ridge(c, 1010, 140, 340, 7, 0.55), 0.85, hx('#03080d'), hx('#58e0c8', 0.9), { fog: 0.1 }),

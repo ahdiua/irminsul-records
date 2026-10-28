@@ -1,7 +1,7 @@
 [project]
-name = "irminsul-records-pipeline"
+name = "teyvat-chronicle-pipeline"
 version = "0.1.0"
-description = "Narration, score, art and data pipeline for the Irminsul Records Teyvat chronicle video"
+description = "Narration, score and data pipeline for the Teyvat Chronicle lore video"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy>=2.0",

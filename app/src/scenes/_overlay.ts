@@ -274,19 +274,19 @@ export class Overlay {
     c.globalAlpha = a;
     c.font = font(F.sans(500), 22);
     c.fillStyle = rgba(GOLD, 0.85);
-    this.spaced(c, 'IRMINSUL RECORDS', 960, 388, 16);
+    this.spaced(c, 'A CHRONICLE OF TEYVAT', 960, 388, 16);
     const wipe = ease.outCubic(clamp((t - start - 0.6) / 2.2, 0, 1));
-    c.font = font(F.serif(900), 132);
-    c.letterSpacing = '22px';
-    const tw = c.measureText('伊尔明苏尔档案').width - 22;
+    c.font = font(F.serif(900), 140);
+    c.letterSpacing = '30px';
+    const tw = c.measureText('提瓦特编年史').width - 30;
     c.save(); c.beginPath(); c.rect(960 - tw / 2 - 30, 380, (tw + 60) * wipe, 240); c.clip();
     c.fillStyle = BONE; c.shadowColor = rgba(GOLD, 0.65); c.shadowBlur = 36; c.textAlign = 'left';
-    c.fillText('伊尔明苏尔档案', 960 - tw / 2, 545);
+    c.fillText('提瓦特编年史', 960 - tw / 2, 548);
     c.restore();
     c.letterSpacing = '0px';
-    c.font = font(F.serif(600), 44);
-    c.fillStyle = rgba(BONE, 0.85 * smoothstep(start + 2.2, start + 3.2, t));
-    this.spaced(c, '提瓦特编年史', 960, 640, 20);
+    c.font = font(F.serif(600), 38);
+    c.fillStyle = rgba(BONE, 0.8 * smoothstep(start + 2.2, start + 3.2, t));
+    this.spaced(c, '从龙之世，到至冬', 960, 640, 18);
     c.restore();
   }
 
@@ -298,11 +298,11 @@ export class Overlay {
     c.globalAlpha = a;
     c.font = font(F.serif(900), 84);
     c.fillStyle = BONE; c.shadowColor = rgba(GOLD, 0.6); c.shadowBlur = 30;
-    this.spaced(c, '记录仍在书写', 960, 430, 16);
+    this.spaced(c, '历史仍在书写', 960, 430, 16);
     c.shadowBlur = 0;
     c.font = font(F.sans(500), 22);
     c.fillStyle = rgba(GOLD, 0.8);
-    this.spaced(c, 'IRMINSUL RECORDS · A CHRONICLE OF TEYVAT', 960, 492, 8);
+    this.spaced(c, '提瓦特编年史 · A CHRONICLE OF TEYVAT', 960, 492, 8);
     const cr = smoothstep(start + 2.0, start + 3.2, t);
     c.globalAlpha = a * cr;
     c.font = font(F.sans(500), 21);

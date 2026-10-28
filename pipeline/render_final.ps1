@@ -20,6 +20,6 @@ $jobs | Wait-Process
 foreach ($j in $jobs) { if ($j.ExitCode -ne 0) { throw "segment failed (exit $($j.ExitCode)); see out/seg4k_*.log" } }
 $list = Join-Path $out 'seg4k.txt'
 (0..3 | ForEach-Object { "file 'seg4k_$_.mp4'" }) | Set-Content $list -Encoding ascii
-$final = Join-Path $out 'irminsul-records-4k.mp4'
+$final = Join-Path $out 'teyvat-chronicle-4k.mp4'
 ffmpeg -y -v error -f concat -safe 0 -i $list -i (Join-Path $root 'audio/chronicle.m4a') -map 0:v -map 1:a -c copy -movflags +faststart $final
 Write-Host "wrote $final"

@@ -1,4 +1,4 @@
-"""The narration of 《伊尔明苏尔档案：提瓦特编年史》, with the picture each passage sits on.
+"""The narration of 《提瓦特编年史》, with the picture each passage sits on.
 
 Structure: CHAPTERS -> shots -> lines. A line is one TTS unit and one subtitle (split into two rows on screen when
 long). A shot is what is on screen while its lines are read: a plate (pipeline/plates.py) or a code-drawn
@@ -61,7 +61,9 @@ CHAPTERS: list[Chapter] = [
         Shot('irminsul', [
             L('提瓦特发生过的一切，都会化作它的一片叶子：每一场战争，每一位神明，每一个被遗忘的名字。'),
             L('但这棵树并不可靠。它可以被篡改，被污染，也可以被抹去。'),
-            L('所以这份档案，只能从散落世间的书页、遗迹与传说里，一片一片地拼回来。'),
+            L('它也只记得提瓦特之内的事。从世界之外到来的存在，不会在它的叶子上留下名字——'),
+            L('可提瓦特的历史，偏偏一次又一次，被世界之外的来客改写。'),
+            L('所以这部编年史，只能从散落世间的书页、遗迹与传说里，一片一片地拼回来。'),
             L('现在，让我们从最古老的那一页翻起。', 0.6),
         ], move='rise', fx='motes', focus=(0.5, 0.4)),
     ]),
@@ -102,7 +104,7 @@ CHAPTERS: list[Chapter] = [
         ], move='push', fx='embers'),
         Shot('falsesky', [
             L('据说，它还借用龙族遗留的技术，为提瓦特罩上了一层「虚假之天」，将这颗星球与外面的宇宙隔绝开来。'),
-            L('世界树也被它改造，成了记录世间一切、维系世界运转的装置。'),
+            L('世界树也被它改造，成了记录提瓦特万物、维系世界运转的装置。'),
         ], move='pull', fx='stars'),
         Shot('paradise', [
             Q('「最后它们造出了人。」'),
@@ -280,12 +282,12 @@ CHAPTERS: list[Chapter] = [
         Shot('ruins_sky', [
             L('从龙的时代，到天理的时代；从神的时代，到人的时代。'),
             L('提瓦特的历史，是一次又一次的覆灭与重来。'),
-            L('天理用天钉与禁令把过去埋进地底，世界树记下一切，也能抹去一切。'),
+            L('天理用天钉与禁令把过去埋进地底；世界树里的记忆，也可以被一笔抹去。'),
         ], move='pull', fx='stars'),
         Shot('irminsul_end', [
             L('可总有人记得——用一本禁书，一首歌，一个五百年不变的约定。'),
-            L('伊尔明苏尔的档案，到这里还没有写完。'),
-            L('最后的几页，正由一位来自世界之外的旅行者书写。', 1.2),
+            L('提瓦特的编年史，到这里还没有写完。'),
+            L('最后的几页，正由一位来自世界之外、世界树也无从记录的旅行者书写。', 1.2),
         ], move='rise', fx='motes', focus=(0.5, 0.4)),
     ]),
 ]

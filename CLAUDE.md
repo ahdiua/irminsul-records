@@ -1,9 +1,14 @@
-# Irminsul Records — working notes
+# Teyvat Chronicle — working notes
 
-《伊尔明苏尔档案：提瓦特编年史》: a ~13.6 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
+《提瓦特编年史》: a ~13.8 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
 dragon age to Snezhnaya (7.0). Everything on screen is code-rendered: **no AI-generated images, no game assets**.
 The engine is a fork of `../黑凤梨/app` (itself pdoom-video): read `../pdoom-video/docs/ENGINE.md` for the engine
 rules (determinism on `f.t`, 1920×1080 logical px, linear HDR colours, `frameIdx` for per-frame jitter).
+
+The film was first titled 《伊尔明苏尔档案》 and renamed: Irminsul holds no records of beings from outside Teyvat
+(Descenders, the Traveler), so it can't be the narrator of a story they drive. Don't frame the narration as
+"Irminsul's records". The folder and the `irminsul*` picture ids keep the old name (`../teyvat-chronicle` is an
+earlier abandoned attempt).
 
 ## Layout
 - `pipeline/` — Python stages (uv project at the root; `uv sync`). `paths.py` = every path.

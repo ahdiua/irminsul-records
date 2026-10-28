@@ -11,6 +11,7 @@
 | Fandom *Before Sun and Moon* 页（英文版全文） | 和中文原文对照 | 同上（Wayback） |
 | ../teyvat-chronicle/build/research/claims.md | 早先一次调研采集的条目：萌娘百科、BWIKI 2026、HoYoLAB Wiki、Pocket Tactics 等 | 复用 |
 | Wikipedia *Snezhnaya (Genshin Impact)*；Notebookcheck / Game Rant 7.0 报道 | 至冬（7.0，2026-08-12）的现状 | WebFetch / WebSearch |
+| Fandom *Irminsul* 页，2026-07-16 快照 | 序章和尾声里世界树的说法：世界树记录提瓦特的一切信息，信息可以被抹去；「Those who are not from the world of Teyvat, such as Descenders, do not have records in Irminsul」（出处为魔神任务 III-5「虚空鼓动，劫火高扬」、间章第三幕「倾落伽蓝」）。这也是片名不叫「伊尔明苏尔档案」的原因：片中讲的天理、降临者和旅行者，本来就不在世界树的记录里 | Wayback（同上） |
 
 ## 片中采用的时间线
 

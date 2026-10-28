@@ -1,6 +1,6 @@
 import { hexToLinear } from './util';
 
-// Irminsul Records palette: night ink for the record's page, bone for type, Celestia gold for the heavens and
+// Teyvat Chronicle palette: night ink for the record's page, bone for type, Celestia gold for the heavens and
 // the Heavenly Principles, the seven element colours for the nations and their gods, Abyss violet and Crimson
 // Moon red for Khaenri'ah and the Abyss. The engine's legacy keys (signal, ember, blood, acid, sodium, rust,
 // tianyi, pink, sea) are kept as aliases so engine code keeps compiling.

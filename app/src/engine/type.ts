@@ -14,7 +14,7 @@ export const SERIF_WEIGHTS = [600, 700, 900] as const;
 
 /** `features`: OpenType features switched on for the face (Canvas2D has no font-feature-settings). */
 type FontDef = { family: string; file: string; features?: string };
-// (Irminsul Records ships 思源宋体 / 思源黑体 / 霞鹜文楷 only: display(), pixel(), neon(), marker() and pen()
+// (Teyvat Chronicle ships 思源宋体 / 思源黑体 / 霞鹜文楷 only: display(), pixel(), neon(), marker() and pen()
 // fall back to them)
 const DEFS: FontDef[] = [
   { family: 'WenKai', file: 'WenKai.ttf' },

@@ -1,10 +1,10 @@
 """Stage: the master. Narration (build/narration.wav) over the score (build/music/score.wav, if present), the score
 ducked under the voice; loudness to -16 LUFS integrated, true peak <= -1.5 dBTP.
 
-Writes audio/chronicle.m4a (AAC 256k, what the renders mux), audio/chronicle.opus (Opus 128k, what the preview player
-loads: 13.6 MB against the m4a's 27; constrained VBR, as plain VBR averaged 157k on the score) and data/audio.json
-(envelopes the scenes can react to: `vocal` = narration, `other` = score, `rms` = mix; no beat grid: a slow 60 BPM
-placeholder).
+Writes build/master.wav (float, what the 4K render encodes to AAC 256k), audio/chronicle.opus (Opus 128k, what the
+preview player loads and the only sound in the repo; constrained VBR, as plain VBR averaged 157k on the score) and
+data/audio.json (envelopes the scenes can react to: `vocal` = narration, `other` = score, `rms` = mix; no beat grid: a
+slow 60 BPM placeholder).
 
 usage:  uv run python pipeline/mix.py
 """
@@ -16,7 +16,7 @@ import soundfile as sf
 from scipy import signal
 from scipy.ndimage import maximum_filter1d, uniform_filter1d
 
-from paths import BUILD, DATA, MASTER, MUSIC, PREVIEW, SR
+from paths import BUILD, DATA, MUSIC, PREVIEW, SR
 
 FPS = 100
 
@@ -74,8 +74,7 @@ def main():
         mix = np.tanh(mix / peak * 1.2) / np.tanh(1.2) * 10 ** (-1.5 / 20) if peak > 1.0 else mix * (10 ** (-1.5 / 20) / peak)
     wav = BUILD / 'master.wav'
     sf.write(wav, mix, SR, subtype='FLOAT')
-    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(wav), '-c:a', 'aac', '-b:a', '256k', '-movflags', '+faststart', str(MASTER)], check=True)
-    # AAC priming is removed by the m4a's edit list, Opus's by its pre-skip: in both t = 0 is the first sample
+    # Opus's pre-skip removes its priming: t = 0 is the first sample
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(wav), '-c:a', 'libopus', '-b:a', '128k', '-vbr', 'constrained', str(PREVIEW)], check=True)
     a = {'duration': chapters['duration'], 'bpm': 60, 'fps': FPS,
          'beats': [round(i * 1.0, 3) for i in range(int(chapters['duration']) + 2)],
@@ -85,7 +84,7 @@ def main():
                       'rms': np.round(env(mix.mean(1)), 3).tolist()},
          'onsets': {}}
     (DATA / 'audio.json').write_text(json.dumps(a), encoding='utf-8')
-    print(f'master {MASTER.name} {MASTER.stat().st_size / 2**20:.1f} MB, preview {PREVIEW.name} {PREVIEW.stat().st_size / 2**20:.1f} MB: {n / SR:.1f}s, voice {v_lufs:.1f} -> -17 LUFS, mix -16 LUFS, score {"yes" if score_path.exists() else "none"}')
+    print(f'master {wav.name}, preview {PREVIEW.name} {PREVIEW.stat().st_size / 2**20:.1f} MB: {n / SR:.1f}s, voice {v_lufs:.1f} -> -17 LUFS, mix -16 LUFS, score {"yes" if score_path.exists() else "none"}')
 
 
 if __name__ == '__main__':

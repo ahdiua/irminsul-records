@@ -36,8 +36,9 @@ earlier abandoned attempt).
     `build/narration.wav`. Pacing constants at the top (cards, gaps, quote air).
   - `music.py` → `build/music/score.wav` (synthesised: pads, choir, FM bells, harp, drone, taiko, booms, hall).
     Event hits are found from chapters.json by shot plate id (`shot_start` / `line_start`).
-  - `mix.py` → `audio/chronicle.m4a` (AAC 256k, muxed into renders) + `audio/chronicle.opus` (Opus 128k, what the
-    preview player loads) + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
+  - `mix.py` → `build/master.wav` (render_final encodes it to AAC 256k; without it, it muxes the Opus) +
+    `audio/chronicle.opus` (Opus 128k, what the preview player loads; the only sound in git: the user had the m4a
+    purged from the history) + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
   - `fonts.py` → `app/public/fonts/HYRunYuan.ttf` (subset from data + `ui_strings.txt` + script). Add new display
     strings there. `engine/type.ts`: every family helper (`F.sans/serif/display/...`) returns this one face.
   - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet),

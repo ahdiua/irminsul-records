@@ -64,7 +64,7 @@ bunx --bun vite --port 5190 --strictPort --host 127.0.0.1
 pwsh -File pipeline/render_final.ps1
 ```
 
-脚本分 4 段并行渲染 4K60 画面，再无损拼接并封装 `audio/chronicle.m4a`，输出 `out/teyvat-chronicle-4k.mp4`，耗时约 45 分钟。并行渲染占用内存较多。
+脚本分 4 段并行渲染 4K60 画面，再无损拼接并配上声音，输出 `out/teyvat-chronicle-4k.mp4`，耗时约 45 分钟。并行渲染占用内存较多。声音：本地有 `mix.py` 生成的无损母带 `build/master.wav` 时编码为 AAC 256k，否则直接封装仓库里的 `audio/chronicle.opus`（Opus 128k）。
 
 ## 资料
 

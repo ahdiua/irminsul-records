@@ -219,7 +219,7 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   } else if (HDR && HDR_LIGHT !== 'nominal') [maxCLL, maxFALL] = HDR_LIGHT.split(',').map(Number);
   const encoding = videoEncodingArgs({ hdr: HDR, codec: opt('codec'), preset: opt('preset'), crf: opt('crf'), cq: opt('cq'), maxrate: opt('maxrate'), tenBit: flag('10bit'),
     x264: opt('x264'), x265: opt('x265'), width: OW, height: OH, fps, from, to, output: out,
-    audio: flag('noaudio') ? undefined : path.join(ROOT, 'audio/chronicle.m4a'),
+    audio: flag('noaudio') ? undefined : path.join(ROOT, 'audio/chronicle.opus'),
     whiteNits: HDR_WHITE, peakNits: HDR_PEAK, maxCLL, maxFALL, inputHdrMetadata, extra: extraOutputArgs });
   const outputInfo = await page.evaluate(() => ({ format: (window as any).__pdoom.pixelFormat ?? 'rgba', bytes: (window as any).__pdoom.bytesPerPixel ?? 4 }));
   if (outputInfo.format !== encoding.wireFormat || outputInfo.bytes !== encoding.wireBytesPerPixel) throw new Error('Browser/FFmpeg frame format mismatch. Restart the Vite server with the current source.');

@@ -13,8 +13,7 @@ DATA = ROOT / "data"            # what the app reads: lyrics.json (narration), a
 APP = ROOT / "app"
 ART = APP / "public" / "art"    # the plates the app draws
 FONTS_OUT = APP / "public" / "fonts"
-MASTER = ROOT / "audio" / "chronicle.m4a"     # AAC 256k: muxed into the renders
-PREVIEW = ROOT / "audio" / "chronicle.opus"   # Opus 128k: what the preview player loads (half the size)
+PREVIEW = ROOT / "audio" / "chronicle.opus"   # Opus 128k: what the preview player loads (the renders use build/master.wav)
 SR = 48000
 GCP_KEY = ROOT / "secrets" / "gcp_key.json"   # Vertex AI service-account key (gitignored; never print it)
 
@@ -23,5 +22,5 @@ FONTS = {
     "runyuan": ROOT / "assets" / "fonts" / "HYRunYuan-65W.ttf",
 }
 
-for d in (BUILD, TTS, MUSIC, CACHE, ART_RAW, QA, DATA, ART, FONTS_OUT, MASTER.parent):
+for d in (BUILD, TTS, MUSIC, CACHE, ART_RAW, QA, DATA, ART, FONTS_OUT, PREVIEW.parent):
     d.mkdir(parents=True, exist_ok=True)

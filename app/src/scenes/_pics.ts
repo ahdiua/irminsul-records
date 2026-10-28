@@ -305,6 +305,16 @@ function cycleLeader(i: number): [P2, P2, P2] {
   return [[cx + ca * c.r, cy + sa * c.r], e, [e[0] + Math.sign(ca) * 70, e[1]]];
 }
 
+/**
+ * The heavens split the wild light realm force (光界力) into the seven elements: 纳西妲 in 「幽暗时分」 (「天理」降临后，
+ * 使光界力化分为元素力); 夜神 in 「秘源之下」 likens it to light refracted into the rainbow's seven colours. A prism at
+ * PRISM, the seven beams fanned over PRISM_SPREAD, in ELS order (the narration names them in that order).
+ */
+const PRISM: P2 = [700, 540];
+const PRISM_SPREAD = 0.6;
+const EL_ZH = ['风', '岩', '雷', '草', '水', '火', '冰'];
+const prismAng = (i: number) => lerp(-PRISM_SPREAD, PRISM_SPREAD, i / 6);
+
 // ------------------------------------------------------------------ the pictures
 
 export const PICS: Record<string, PicDef> = {
@@ -489,6 +499,61 @@ export const PICS: Record<string, PicDef> = {
     },
     fx: { kind: 'embers', col: E.pyro, amount: 1.4 },
     post: () => ({ bloom: 0.75 }),
+  },
+  'diagram:prism': {
+    sky: () => night({ top: hx('#02030a'), mid: hx('#100f26'), hor: hx('#2e2a44'), horY: 900, stars: 0.8, neb: 0.45, nebA: hx('#e8c47e', 0.22), nebB: hx('#4a3a8a', 0.3) }),
+    art: (ink, k) => {
+      const [px, py] = PRISM;
+      const base = k.at(k.seg.start + 0.3, 1.5);
+      // the light realm force: five strands twisting round one another and flickering, narrowing into the prism
+      const reach = k.at(k.say('光界力') - 0.6, 1.6);
+      for (let s = 0; s < 5; s++) {
+        const pts: P2[] = [];
+        for (let j = 0; j <= 60; j++) {
+          const u = j / 60, x = lerp(60, px, u);
+          pts.push([x, py + lerp(70, 5, u ** 1.5) * fbm1(x * 0.006 - k.t * (0.9 + s * 0.2), 3, 40 + s)]);
+        }
+        const flick = 0.6 + 0.4 * noise1(k.t * 7 + s * 3, 9);
+        ink.glow(pts, 1.2 + 0.4 * (s % 2), mul(s % 2 ? E.bone : E.goldHot, 1.6), 0.55 * flick * base, reach);
+      }
+      // the prism: a triangle of light in the heavens' rings, flaring as the force is split (「化分」)
+      const tri = (r: number, a0: number): P2[] => [0, 1, 2].map((i) => [px + Math.cos(a0 + i * Math.PI * 2 / 3) * r, py + Math.sin(a0 + i * Math.PI * 2 / 3) * r] as P2);
+      ink.glow(tri(70, -Math.PI / 2), 1.4, mul(E.goldHot, 1.4), 0.9 * base, 1, true);
+      ink.poly(tri(84, Math.PI / 2), 0.8, mul(E.gold, 1), 0.4 * base, 1, true);
+      rings(ink, px, py, 120, mul(E.gold, 0.7), 0.4, k.t, base);
+      const hit = k.say('化分'), flash = k.t > hit ? Math.exp(-(k.t - hit) * 1.5) : 0;
+      ink.dot([px, py], 9 + 14 * flash, mul(E.goldHot, 3 + 4 * flash), 1);
+      // the seven beams, each drawn out as its element is named; brighter at 「彩虹」
+      const bow = k.at(k.say('彩虹'), 1.5);
+      ELS.forEach(([name], i) => {
+        const a = prismAng(i), g = k.at(k.say(EL_ZH[i]!) - 0.15, 0.7);
+        ink.glow([[px, py], [px + Math.cos(a) * 560, py + Math.sin(a) * 560]], 1.3 + 0.8 * bow, emblemCol(name, 1.2 + 0.6 * bow), 0.75 * g, g);
+      });
+    },
+    emblems: (k) => {
+      const bow = k.at(k.say('彩虹'), 1.5);
+      return ELS.map(([el], i) => {
+        const a = prismAng(i);
+        return { el, x: PRISM[0] + Math.cos(a) * 640, y: PRISM[1] + Math.sin(a) * 640, size: 110, rev: k.at(k.say(EL_ZH[i]!), 1.0), glow: 1 + 0.3 * bow + 0.15 * Math.sin(k.t * 1.3 + i * 0.9) };
+      });
+    },
+    ui: (c, k) => {
+      c.textAlign = 'center';
+      const head = k.at(k.seg.start + 0.6, 1);
+      let [x, y] = project(k.cam, 960, 118, 1);
+      c.globalAlpha = head * k.w; c.font = font(F.serif(700), 26); c.fillStyle = '#E9C47E'; c.fillText('光界力 · 元素力', x, y);
+      [x, y] = project(k.cam, 300, 660, 1);
+      c.globalAlpha = k.at(k.say('光界力'), 0.8) * k.w; c.font = font(F.serif(700), 32); c.fillStyle = '#EEE6D3'; c.fillText('光界力', x, y);
+      c.textAlign = 'left'; c.font = font(F.serif(700), 30); c.fillStyle = '#EEE6D3';
+      EL_ZH.forEach((n, i) => {
+        const a = prismAng(i);
+        [x, y] = project(k.cam, PRISM[0] + Math.cos(a) * 640 + 76, PRISM[1] + Math.sin(a) * 640 + 11, 1);
+        c.globalAlpha = k.at(k.say(n) + 0.2, 0.6) * k.w;
+        c.fillText(n, x, y);
+      });
+      c.globalAlpha = 1;
+    },
+    fx: { kind: 'gold', col: E.gold, amount: 0.35 },
   },
   falsesky: {
     sky: (k) => night({ top: hx('#010208'), mid: hx('#0a1430'), hor: hx('#20304e'), horY: 820, stars: 1.3, milky: 1, milkyAngle: 0.5, neb: 0.5, shell: smoothstep(0.5, 5, k.lt), crack: 0.15 + 0.25 * smoothstep(3, 12, k.lt), crackCol: hx('#cfe0ff', 0.9) }),

@@ -1,4 +1,5 @@
 提瓦特编年史 A CHRONICLE OF TEYVAT 从龙之世，到至冬
+世界树档案 IRMINSUL RECORDS
 卷一 卷二 卷三 卷四 卷五 卷六 卷七 卷八 尾声 序
 距今 年前 现在 纪年之前 衔枝之年 约 万 千 百
 风 岩 雷 草 水 火 冰 深渊 天理
@@ -13,13 +14,10 @@
 游戏内书籍、任务与角色故事；整理参考 米游社观测枢、原神WIKI（BWIKI）、萌娘百科、Genshin Impact Wiki（Fandom）
 谨以此片献给所有提瓦特的旅行者 历史仍在书写 未完待续
 作者 ahdiua 资料来源
-书籍：《白夜国馆藏·日月前事》《石书集录》《绝云记闻》《裴伦埃里》 · 角色故事：钟离、温迪、那维莱特、旅行者
-任务：魔神任务 序章至第五章 · 间章第三幕「倾落伽蓝」 · 空月之歌 第八幕「真实之月」、第十幕「虚空劫灰往世书」 · 7.0「无神怜爱的雪国」
-世界任务与活动：「传说中的天蛇船」 · 水仙的追迹 第二幕「救世者的守灵」 · 揭示之书「神秘的书页」 · 「当我们抬头望月亮」
-图鉴与文本：介绍【自体自身之塔】 · 根源之轮 · 武器「支离轮光」「赤月之形」 · 圣遗物「来歆余响」 · BOSS「『死之执政』若娜瓦」 · 挪德卡莱地区介绍 · 空月之歌 PV
-整理与考据：米游社观测枢 · 原神WIKI（BWIKI） · 萌娘百科 · Genshin Impact Wiki（Fandom，Wayback Machine 存档） · HoYoLAB Wiki · Wikipedia · Notebookcheck · Game Rant · Pocket Tactics
-画面参考：寒天之钉的游戏画面（米游社攻略图、哔哩哔哩视频封面），仅作造型参考
+米游社观测枢 · 原神WIKI（BWIKI） · 萌娘百科 · Genshin Impact Wiki（Fandom）
+HoYoLAB Wiki · Wikipedia · Notebookcheck · Game Rant · Pocket Tactics · 哔哩哔哩
 旁白 Gemini 3.8 Flash TTS（Schedar）· 引文 Aoede · 字体 汉仪润圆 65W · 画面与配乐均由代码实时生成
+光界力 · 元素力 风 岩 雷 草 水 火 冰
 根源之轮 水仙十字结社 亥珀波瑞亚 纳塔兰提亚 雷穆利亚 克劳雅利亚 失乐园 战胜恶龙 原罪与洗礼 从神那里获得自由
 Phanes Nibelung Naberius Ronova Istaroth Asmoday Irminsul Celestia Khaenri'ah Hyperborea Natlantean Remuria Khraun-Arya
 ANEMO GEO ELECTRO DENDRO HYDRO PYRO CRYO

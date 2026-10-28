@@ -136,6 +136,8 @@ let film: Film | null = null;
 
 export default class Chronicle extends Scene {
   override init() { film ??= new Film(this.ctx); }
+  /** The shared typography (scripts/cover.ts sets the cover's title on it). */
+  get overlay() { return film?.overlay; }
   render(f: Frame, out: THREE.WebGLRenderTarget) { return film!.frame(f, out); }
   override warmupTimes() {
     // one time inside every picture of this entry (each has its own sky / land variant)

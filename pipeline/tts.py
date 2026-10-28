@@ -68,10 +68,12 @@ BRIEFS = {
 }
 # Trial (user, 2026-10-28): no style at all. Google's 3.8 TTS guide says to start from an empty style and that
 # instructions to hold the voice steady add drift, which BRIEFS do. The takes read with BRIEFS stay cached under
-# their own keys: put them back in `instructions` to return to them without new requests.
+# their own keys: put them back in `instructions` to return to them without new requests. The user kept the plain
+# narrator but wanted the quotes of 《日月前事》 as before (2026-10-29): the quote voice reads with its brief again (its
+# lines sit ~3 dB under the narrator, as in the BRIEFS takes).
 VOICES = {
     'narrator': dict(voice='Schedar', instructions=''),
-    'quote': dict(voice='Aoede', instructions=''),
+    'quote': dict(voice='Aoede', instructions=BRIEFS['quote']),
 }
 # candidates for --audition; 'name:bare' = no instructions at all (Gemini's own read). Round 1 (Charon, Orus,
 # Algenib, Iapetus, Alnilam, Sadaltager, Rasalgethi, Gacrux, on a documentary brief) all sounded too performed;

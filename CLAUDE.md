@@ -26,10 +26,11 @@ earlier abandoned attempt).
     take's last line, dropped) and cuts them back into lines at pauses (`split`, a DP on expected lengths). One take of
     the whole film went bad after ~400 s (dropped words; one request outputs at most ~655 s of audio, 16,384 tokens).
     A plain run only fills lines missing from the cache (a run of new lines in one take between its cached neighbours).
-    Mispronunciations: `SAY` (homophones in what Gemini reads only). Trial in progress (user, 2026-10-28): no style
-    (`VOICES` instructions empty; Google's 3.8 guide: start from an empty style, hold-steady instructions add drift;
-    the earlier brief is `BRIEFS`, its takes still cached) and `--chapters`: a take per chapter, cut at pauses only,
-    no alignment / STT / retakes, checked by ear by the user. Gemini gives no word times:
+    Mispronunciations: `SAY` (homophones in what Gemini reads only). Trial (user, 2026-10-28): the narrator with no
+    style (Google's 3.8 guide: start from an empty style, hold-steady instructions add drift; the earlier brief is
+    `BRIEFS`, its takes still cached) read by `--chapters` (a take per chapter, cut at pauses only); the quotes went
+    back to their brief (2026-10-29, the user's ear). Then `--realign` + STT of suspect lines (e.g. every 瑞: Gemini
+    reads 瑞亚 like English) and retakes in context. Gemini gives no word times:
     `align.py` force-aligns the known text (pinyin over torchaudio MMS_FA, own CTC Viterbi); failing lines
     (skipped/invented words) are re-read in context.
   - `assemble.py` → `data/chapters.json` (the edit), `data/lyrics.json` (subtitle cues ≤20 chars with word times),
@@ -62,8 +63,8 @@ earlier abandoned attempt).
   - `_emblem.ts` element emblems: `elements.svg` paths → atlas mask (glyph + two glows) → additive pass with a
     burn-in reveal; a picture lists them in `emblems: (k) => [...]` (`sy` < 1 lays one flat on the ground).
   - `_overlay.ts` typography: subtitles, quote cards lit per character, chapter cards + year ruler, era stamp,
-    place tags, title, end card (one page: author `AUTHOR` = the user's id ahdiua, every source RESEARCH.md cites in
-    `SOURCES`: keep them in step).
+    place tags, title, end card (one page: author `AUTHOR` = the user's id ahdiua; `SOURCES` = the websites RESEARCH.md
+    draws on, sites only, no texts or quests: the user's wish).
 - `docs/RESEARCH.md` sources and the adopted chronology; `docs/research/` raw page captures.
 
 ## Commands
@@ -75,6 +76,7 @@ $env:PDOOM_NO_HMR=1; bunx --bun vite --port 5190 --strictPort --host 127.0.0.1  
                                                                                   # private server times out here
 bun scripts/render.ts stills --url http://127.0.0.1:5190 --t 58.4,122.5 --out ../out/wip/x
 pwsh -File pipeline/render_final.ps1      # 4K60 HEVC Main10 NVENC, 4 parallel quarters -> out/teyvat-chronicle-4k.mp4 (~45 min)
+$env:PDOOM_URL='http://127.0.0.1:5190'; bun scripts/cover.ts   # title card with the cover's words (世界树档案) -> out/cover.jpg, cover-4k.png
 ```
 The finished film is the 4K render only: the user wants no 1080p version of it (2026-10-28).
 The preview may run with `--host 0.0.0.0` (the user opens it over ZeroTier, 192.168.168.87:5190).

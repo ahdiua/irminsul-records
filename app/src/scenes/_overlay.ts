@@ -10,18 +10,13 @@ import { FILM, type ChapterJ, type Segment, chapterAt } from './_film';
 
 const GOLD = '#E9C47E', BONE = '#EEE6D3', ASH = '#8B93A8';
 
-/** End card. The author: the user's id. SOURCES: every source docs/RESEARCH.md cites (game texts, then the wikis and
- * articles used to find and check them, then the pictures' references); new display text also goes in
+/** End card. The author: the user's id. SOURCES: the websites docs/RESEARCH.md draws on (the user wants the sites
+ * only, not the game texts and quests read on them: RESEARCH.md lists those); new display text also goes in
  * pipeline/ui_strings.txt (font subset). */
 const AUTHOR = 'ahdiua';
 const SOURCES = [
-  '书籍：《白夜国馆藏·日月前事》《石书集录》《绝云记闻》《裴伦埃里》 · 角色故事：钟离、温迪、那维莱特、旅行者',
-  '任务：魔神任务 序章至第五章 · 间章第三幕「倾落伽蓝」 · 空月之歌 第八幕「真实之月」、第十幕「虚空劫灰往世书」 · 7.0「无神怜爱的雪国」',
-  '世界任务与活动：「传说中的天蛇船」 · 水仙的追迹 第二幕「救世者的守灵」 · 揭示之书「神秘的书页」 · 「当我们抬头望月亮」',
-  '图鉴与文本：介绍【自体自身之塔】 · 根源之轮 · 武器「支离轮光」「赤月之形」 · 圣遗物「来歆余响」 · BOSS「『死之执政』若娜瓦」 · 挪德卡莱地区介绍 · 空月之歌 PV',
-  '整理与考据：米游社观测枢 · 原神WIKI（BWIKI） · 萌娘百科 · Genshin Impact Wiki（Fandom，Wayback Machine 存档）',
-  'HoYoLAB Wiki · Wikipedia · Notebookcheck · Game Rant · Pocket Tactics',
-  '画面参考：寒天之钉的游戏画面（米游社攻略图、哔哩哔哩视频封面），仅作造型参考',
+  '米游社观测枢 · 原神WIKI（BWIKI） · 萌娘百科 · Genshin Impact Wiki（Fandom）',
+  'HoYoLAB Wiki · Wikipedia · Notebookcheck · Game Rant · Pocket Tactics · 哔哩哔哩',
 ];
 const MAKING = '旁白 Gemini 3.8 Flash TTS（Schedar）· 引文 Aoede · 字体 汉仪润圆 65W · 画面与配乐均由代码实时生成';
 const EL: Record<string, string> = {
@@ -281,27 +276,31 @@ export class Overlay {
     c.restore();
   }
 
+  /** The title card's words (scripts/cover.ts sets the cover's own). */
+  titleText = { en: 'A CHRONICLE OF TEYVAT', zh: '提瓦特编年史', sub: '从龙之世，到至冬' };
+
   private title(c: CanvasRenderingContext2D, t: number) {
     const { start, end } = FILM.title;
     const a = smoothstep(start + 0.3, start + 1.6, t) * (1 - smoothstep(end - 1.4, end - 0.2, t));
     if (a <= 0) return;
+    const { en, zh, sub } = this.titleText;
     c.save();
     c.globalAlpha = a;
     c.font = font(F.sans(500), 22);
     c.fillStyle = rgba(GOLD, 0.85);
-    this.spaced(c, 'A CHRONICLE OF TEYVAT', 960, 388, 16);
+    this.spaced(c, en, 960, 388, 16);
     const wipe = ease.outCubic(clamp((t - start - 0.6) / 2.2, 0, 1));
     c.font = font(F.serif(900), 140);
     c.letterSpacing = '30px';
-    const tw = c.measureText('提瓦特编年史').width - 30;
+    const tw = c.measureText(zh).width - 30;
     c.save(); c.beginPath(); c.rect(960 - tw / 2 - 30, 380, (tw + 60) * wipe, 240); c.clip();
     c.fillStyle = BONE; c.shadowColor = rgba(GOLD, 0.65); c.shadowBlur = 36; c.textAlign = 'left';
-    c.fillText('提瓦特编年史', 960 - tw / 2, 548);
+    c.fillText(zh, 960 - tw / 2, 548);
     c.restore();
     c.letterSpacing = '0px';
     c.font = font(F.serif(600), 38);
     c.fillStyle = rgba(BONE, 0.8 * smoothstep(start + 2.2, start + 3.2, t));
-    this.spaced(c, '从龙之世，到至冬', 960, 640, 18);
+    this.spaced(c, sub, 960, 640, 18);
     c.restore();
   }
 
@@ -310,26 +309,28 @@ export class Overlay {
     const { start, end } = FILM.end;
     const a = smoothstep(start + 0.4, start + 1.8, t) * (1 - smoothstep(end - 1.2, end, t));
     if (a <= 0) return;
+    // the block centred on the frame: it starts lower the fewer source lines there are
+    const y0 = 250 + (7 - SOURCES.length) * 19;
     c.save();
     c.globalAlpha = a;
     c.font = font(F.serif(900), 76);
     c.fillStyle = BONE; c.shadowColor = rgba(GOLD, 0.6); c.shadowBlur = 30;
-    this.spaced(c, '历史仍在书写', 960, 250, 16);
+    this.spaced(c, '历史仍在书写', 960, y0, 16);
     c.shadowBlur = 0;
     c.font = font(F.sans(500), 22);
     c.fillStyle = rgba(GOLD, 0.8);
-    this.spaced(c, '提瓦特编年史 · A CHRONICLE OF TEYVAT', 960, 306, 8);
+    this.spaced(c, '提瓦特编年史 · A CHRONICLE OF TEYVAT', 960, y0 + 56, 8);
     c.font = font(F.serif(700), 32);
     c.fillStyle = BONE;
-    this.spaced(c, `作者  ${AUTHOR}`, 960, 380, 6);
+    this.spaced(c, `作者  ${AUTHOR}`, 960, y0 + 130, 6);
     c.globalAlpha = a * smoothstep(start + 1.4, start + 2.6, t);
     c.font = font(F.sans(500), 20);
     c.fillStyle = rgba(GOLD, 0.85);
-    this.spaced(c, '资料来源', 960, 456, 8);
-    c.font = font(F.sans(500), 19);
+    this.spaced(c, '资料来源', 960, y0 + 206, 8);
+    c.font = font(F.sans(500), 21);
     c.fillStyle = rgba(BONE, 0.78);
-    SOURCES.forEach((s, i) => this.spaced(c, s, 960, 496 + i * 34, 1));
-    const y = 496 + SOURCES.length * 34 + 30;
+    SOURCES.forEach((s, i) => this.spaced(c, s, 960, y0 + 250 + i * 38, 2));
+    const y = y0 + 250 + SOURCES.length * 38 + 30;
     c.fillStyle = rgba(BONE, 0.66);
     this.spaced(c, MAKING, 960, y, 1);
     this.spaced(c, '《原神》及相关设定归 HoYoverse / 米哈游 所有 · 同人编年史', 960, y + 34, 1);

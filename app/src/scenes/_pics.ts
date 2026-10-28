@@ -10,7 +10,7 @@ import { project } from './_film';
 import type { LandDef, LayerDef, Draw } from './_land';
 import type { RGB, SkyParams } from './_sky';
 import * as S from './_shapes';
-import { Ink, chess, cube, drawTree, makeTree, mixc, mul, nail, particles, rings, serpent, shatter, sigil, tendrils, wyvern, type P2 } from './_art';
+import { Ink, chess, cube, dragon, drawTree, makeTree, mixc, mul, nail, particles, rings, shatter, sigil, spear, tendrils, wyvern, type P2 } from './_art';
 import { emblemCol, type Emblem } from './_emblem';
 
 export interface PicCtx {
@@ -56,26 +56,159 @@ const LUMIN_TREE = makeTree(980, 760, 520, 23, 6, false);
 const SAKURA_GLOW = makeTree(1040, 700, 420, 31, 6, false);
 const SUMERU_TREE = makeTree(960, 660, 640, 41, 7, false);
 
-/** A winged figure of light (Phanes, Asmoday): a body like a blade of light, crowned, with tiers of feathered wings. */
-function lightBeing(ink: Ink, x: number, y: number, s: number, col: RGB, t: number, al = 1, wings = 3) {
-  const body: P2[] = [[x, y - s * 0.9], [x + s * 0.12, y - s * 0.2], [x + s * 0.05, y + s * 0.9], [x, y + s * 1.05], [x - s * 0.05, y + s * 0.9], [x - s * 0.12, y - s * 0.2]];
-  ink.glow(body, 1.6, mul(col, 2), al, 1, true);
-  ink.circle(x, y - s * 1.08, s * 0.13, 1.4, mul(col, 2), al);
-  for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (k - 3) * 0.32; ink.seg([x + Math.cos(a) * s * 0.16, y - s * 1.08 + Math.sin(a) * s * 0.16], [x + Math.cos(a) * s * 0.3, y - s * 1.08 + Math.sin(a) * s * 0.3], 1.2, mul(col, 2.2), al); }
-  for (let tier = 0; tier < wings; tier++) {
-    const flap = Math.sin(t * 0.8 + tier) * 0.08;
+/** A spine for something flying along path(t): the last `len` px of its track behind it at time t (s: 0 head .. 1 tail). */
+function trail(path: (t: number) => P2, t: number, len: number): (s: number) => P2 {
+  const pts: P2[] = [path(t)], cum = [0];
+  for (let j = 1; j < 2000 && cum[cum.length - 1]! < len; j++) {
+    const p = path(t - j * 0.02), q = pts[pts.length - 1]!;
+    pts.push(p); cum.push(cum[cum.length - 1]! + Math.hypot(p[0] - q[0], p[1] - q[1]));
+  }
+  return (s) => {
+    const d = s * len; let i = 1;
+    while (i < pts.length - 1 && cum[i]! < d) i++;
+    const k = clamp((d - cum[i - 1]!) / Math.max(1e-6, cum[i]! - cum[i - 1]!), 0, 1);
+    return [lerp(pts[i - 1]![0], pts[i]![0], k), lerp(pts[i - 1]![1], pts[i]![1], k)];
+  };
+}
+
+const ellipse = (cx: number, cy: number, rx: number, ry: number, n = 64): P2[] =>
+  Array.from({ length: n }, (_, i) => [cx + Math.cos(Math.PI * 2 * i / n) * rx, cy + Math.sin(Math.PI * 2 * i / n) * ry] as P2);
+
+/** A robed figure of light, chest at (x, y): head, shoulders, a mantle flaring to the hem at y + 1.05s, folds. */
+function robed(ink: Ink, x: number, y: number, s: number, col: RGB, al: number) {
+  const c = mul(col, 1.6);
+  ink.seg([x, y - 0.55 * s], [x, y + 0.9 * s], 0.34 * s, mul(col, 0.05), al);           // a faint body of light
+  ink.dot([x, y - 0.8 * s], 0.08 * s, mul(col, 0.18), al);
+  ink.glow(ellipse(x, y - 0.8 * s, 0.085 * s, 0.11 * s, 32), 1.4, c, al, 1, true);
+  const side = (sg: number): P2[] => [[x + sg * 0.035 * s, y - 0.69 * s], [x + sg * 0.07 * s, y - 0.63 * s], [x + sg * 0.19 * s, y - 0.58 * s], [x + sg * 0.23 * s, y - 0.46 * s],
+    [x + sg * 0.2 * s, y - 0.12 * s], [x + sg * 0.22 * s, y + 0.35 * s], [x + sg * 0.3 * s, y + 0.75 * s], [x + sg * 0.4 * s, y + 1.05 * s]];
+  ink.glow(side(-1), 1.5, c, al); ink.glow(side(1), 1.5, c, al);
+  const hem: P2[] = [];
+  for (let i = 0; i <= 14; i++) { const u = i / 14; hem.push([x + lerp(-0.4, 0.4, u) * s, y + (1.05 + 0.025 * Math.sin(u * Math.PI * 4) + 0.04 * Math.sin(Math.PI * u)) * s]); }
+  ink.glow(hem, 1.3, c, al);
+  for (const f of [-0.11, 0, 0.12]) ink.poly([[x + f * 0.5 * s, y - 0.1 * s], [x + f * 0.9 * s, y + 0.45 * s], [x + f * 1.7 * s, y + 1.05 * s]], 1, mul(col, 0.8), al * 0.8);
+}
+
+/**
+ * Phanes, "the Primordial One". The game never shows it; its texts call it the winged one (有翼者, 身披羽翼的降临者),
+ * crowned, the lord of the world in the eggshell (蛋壳中的世界之主), the morning star (晨星), the pheasant (雉鸡).
+ * Built from those: three pairs of feathered wings, crown and halo, a morning star overhead, barred pheasant plumes
+ * for a tail, and the shell of light it breaks out of. `open`: 0 sealed egg .. 1 shell gone, wings spread.
+ */
+function phanes(ink: Ink, x: number, y: number, s: number, col: RGB, t: number, al = 1, open = 1) {
+  const crack = smoothstep(0, 0.2, open), sep = smoothstep(0.15, 0.9, open), lit = lerp(0.3, 1, sep);
+  const white: RGB = [1, 0.96, 0.88];
+  // the egg: two halves of shell split along a zigzag crack, parting and fading
+  const ex = x, ey = y + 0.15 * s, rx = 1.15 * s, ry = 1.6 * s, cy0 = y - 0.1 * s;
+  if (sep < 1) {
+    const tri = (u: number) => 2 * Math.abs(u - Math.floor(u + 0.5));
+    const phc = Math.asin((cy0 - ey) / ry);                                    // the crack meets the shell at phc and π − phc
+    const arc = (a0: number, a1: number): P2[] => Array.from({ length: 61 }, (_, i) => { const a = lerp(a0, a1, i / 60); return [ex + Math.cos(a) * rx, ey + Math.sin(a) * ry] as P2; });
+    const xr = ex + Math.cos(phc) * rx, xl = ex - Math.cos(phc) * rx;
+    const zig: P2[] = []; for (let i = 0; i <= 16; i++) { const px = lerp(xl, xr, i / 16); zig.push([px, cy0 + 0.14 * s * (tri((px - ex) / (0.32 * s)) - 0.5)]); }
+    for (const half of [-1, 1]) {
+      const pts = half < 0 ? arc(Math.PI - phc, 2 * Math.PI + phc) : arc(phc, Math.PI - phc);
+      const off = half < 0 ? -1.3 * s * sep : 0.9 * s * sep, rot = half * 0.22 * sep;
+      const mv = (p: P2): P2 => { const dx = p[0] - ex, dy = p[1] - cy0; return [ex + dx * Math.cos(rot) - dy * Math.sin(rot), cy0 + off + dx * Math.sin(rot) + dy * Math.cos(rot)]; };
+      const a = al * (1 - sep) ** 1.5;
+      ink.glow(pts.map(mv), 1.6, mul(col, 1.5), a);
+      ink.poly(pts.map((p) => mv([lerp(ex, p[0], 0.95), lerp(ey, p[1], 0.95)] as P2)), 0.8, mul(col, 0.6), a);
+      if (crack > 0) ink.glow(zig.map(mv), 1.4, mul(white, 1 + 3 * crack * (1 - sep)), a * crack);
+    }
+    ink.dot([x, y], 0.5 * s, mul(col, 0.06 * (1 - sep)), al);
+  }
+  // the wings: a bone arcing out from the shoulder, coverts along it, flight feathers sweeping toward the tip
+  const tiers = [{ ang: -0.62, span: 1.8, n: 12, dy: 0 }, { ang: -0.12, span: 2.2, n: 14, dy: 0.22 }, { ang: 0.45, span: 1.6, n: 10, dy: 0.44 }];
+  const VANE = [0, 0.06, 0.16, 0.3, 0.45, 0.6, 0.74, 0.86, 0.94, 1], vane = (v: number) => Math.sin(Math.PI * v ** 0.75) ** 0.7;
+  tiers.forEach((tr, ti) => {
+    const u = ease.inOutCubic(clamp((open - 0.3 - ti * 0.1) / 0.45, 0, 1));
+    if (u <= 0) return;
+    const ang = lerp(1.35, tr.ang, u) + Math.sin(t * 0.9 + ti * 0.8) * 0.05 * u, span = tr.span * s * lerp(0.45, 1, u);
+    const spread = 0.15 + 0.85 * u, a = al * lit * (0.95 - ti * 0.12);
     for (const side of [-1, 1]) {
-      const base: P2 = [x + side * s * 0.1, y - s * 0.35 + tier * s * 0.35];
-      for (let f = 0; f < 9; f++) {
-        const u = f / 8;
-        const a = (-0.9 + tier * 0.45 + u * (0.9 - tier * 0.15) + flap) * 1;
-        const len = s * (1.7 - tier * 0.35) * (0.55 + 0.45 * Math.sin(Math.PI * (0.2 + u * 0.8)));
-        const tip: P2 = [base[0] + side * Math.cos(a) * len, base[1] + Math.sin(a) * len];
-        const mid: P2 = [lerp(base[0], tip[0], 0.5) + side * 0.0, lerp(base[1], tip[1], 0.5) - s * 0.08];
-        ink.poly([base, mid, tip], 1.0, mul(col, 1.1 - tier * 0.2), al * (0.9 - tier * 0.2));
+      const X = (px: number, py: number): P2 => [x + side * px, py];            // built for the right wing, mirrored
+      const r0: P2 = [0.14 * s, y - 0.5 * s + tr.dy * s];
+      const c0: P2 = [r0[0] + Math.cos(ang - 0.35) * span * 0.55, r0[1] + Math.sin(ang - 0.35) * span * 0.55];
+      const tp: P2 = [r0[0] + Math.cos(ang + 0.1) * span, r0[1] + Math.sin(ang + 0.1) * span];
+      const B = (v: number): P2 => [(1 - v) ** 2 * r0[0] + 2 * (1 - v) * v * c0[0] + v * v * tp[0], (1 - v) ** 2 * r0[1] + 2 * (1 - v) * v * c0[1] + v * v * tp[1]];
+      const bone: P2[] = []; for (let i = 0; i <= 16; i++) bone.push(X(...B(i / 16)));
+      ink.glow(bone, 1.6, mul(col, 1.5), a);
+      for (let i = 0; i < tr.n; i++) {
+        const v = 0.16 + 0.84 * i / (tr.n - 1), b = B(v), h = hash(i, ti * 7 + 3);
+        const fa = ang + (Math.PI / 2 - v * 1.25) * spread, L = span * (0.3 + 0.5 * v ** 1.3) * (0.92 + 0.12 * h);
+        const fx = Math.cos(fa), fy = Math.sin(fa), qx = -fy, qy = fx, wf = L * 0.075;
+        const F = (al_: number, ac: number): P2 => X(b[0] + fx * L * al_ + qx * ac - qx * Math.sin(Math.PI * al_) * L * 0.05, b[1] + fy * L * al_ + qy * ac - qy * Math.sin(Math.PI * al_) * L * 0.05);
+        const outline = [...VANE.map((v) => F(v, wf * 0.65 * vane(v))), ...VANE.slice(1, -1).reverse().map((v) => F(v, -wf * vane(v)))];
+        const fc = mixc(mul(col, 1.1), mul(white, 1.4), v * 0.5);
+        ink.glow(outline, 0.9, fc, a, 1, true);
+        ink.seg(F(0.02, 0), F(0.9, 0), 0.7, mul(fc, 0.6), a);
+      }
+      for (let v = 0.06; v < 0.86; v += 0.075) {                               // coverts: a scalloped row under the bone
+        const b = B(v), fa = ang + (Math.PI / 2 - v * 0.9) * spread, L = span * 0.15;
+        const fx = Math.cos(fa), fy = Math.sin(fa), qx = -fy, qy = fx;
+        ink.poly([X(b[0] + qx * L * 0.25, b[1] + qy * L * 0.25), X(b[0] + fx * L * 0.8 + qx * L * 0.18, b[1] + fy * L * 0.8 + qy * L * 0.18), X(b[0] + fx * L, b[1] + fy * L), X(b[0] + fx * L * 0.8 - qx * L * 0.18, b[1] + fy * L * 0.8 - qy * L * 0.18), X(b[0] - qx * L * 0.25, b[1] - qy * L * 0.25)], 0.9, mul(col, 1.2), a * 0.85);
       }
     }
+  });
+  // pheasant plumes: long tail feathers trailing from the hem, fanned, curling at the ends, barred with chevrons
+  const tl = al * sep;
+  if (tl > 0.01) for (let i = 0; i < 5; i++) {
+    const k = i - 2, Lp = s * (1.5 + 0.8 * (1 - Math.abs(k) / 2)) * lerp(0.5, 1, sep), n = 30;
+    const C: P2[] = [], nr: P2[] = [];
+    for (let j = 0; j <= n; j++) {
+      const v = j / n, curl = smoothstep(0.55, 1, v) ** 2 * (k === 0 ? 0.12 : Math.sign(k) * 0.24) * s;
+      C.push([x + k * 0.05 * s + k * 0.22 * s * v ** 1.4 + curl + Math.sin(t * 0.7 + i * 1.3 + v * 3) * 0.1 * s * v, y + 1.02 * s + v * Lp]);
+    }
+    for (let j = 0; j <= n; j++) { const p = C[Math.max(0, j - 1)]!, q = C[Math.min(n, j + 1)]!, L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; nr.push([-(q[1] - p[1]) / L, (q[0] - p[0]) / L]); }
+    const hw = (j: number) => 0.04 * s * Math.sin(Math.PI * Math.min(1, j / n * 1.04) ** 0.55);
+    const Lft = C.map((p, j) => [p[0] + nr[j]![0] * hw(j), p[1] + nr[j]![1] * hw(j)] as P2), Rgt = C.map((p, j) => [p[0] - nr[j]![0] * hw(j), p[1] - nr[j]![1] * hw(j)] as P2);
+    ink.glow([...Lft, ...[...Rgt].reverse()], 0.9, mul(col, 1.2), tl, 1, true);
+    ink.poly(C, 0.6, mul(col, 0.7), tl);
+    for (let j = 4; j < n - 1; j += 3) ink.poly([Lft[j]!, C[j + 1]!, Rgt[j]!], 0.8, mul(j % 2 ? white : col, 0.9), tl * 0.7);
   }
+  robed(ink, x, y, s, col, al * lit);
+  // halo, crown, and the morning star above it
+  const hy = y - 0.8 * s, ha = al * sep;
+  ink.circle(x, hy, 0.3 * s, 1.1, mul(col, 1.3), ha);
+  ink.circle(x, hy, 0.38 * s, 0.8, mul(col, 0.8), ha, 1, 120, t * 0.05);
+  for (let i = 0; i < 36; i++) { const a = t * 0.05 + i * Math.PI * 2 / 36, l = i % 3 === 0 ? 0.05 : 0.025; ink.seg([x + Math.cos(a) * 0.38 * s, hy + Math.sin(a) * 0.38 * s], [x + Math.cos(a) * (0.38 + l) * s, hy + Math.sin(a) * (0.38 + l) * s], 0.8, mul(col, 0.9), ha); }
+  const cr: P2[] = [[x - 0.095 * s, y - 0.87 * s]];
+  [[-0.075, 0.07], [-0.0375, 0.11], [0, 0.155], [0.0375, 0.11], [0.075, 0.07]].forEach(([cx, h], i, arr) => {
+    cr.push([x + cx! * s, y - (0.89 + h!) * s]);
+    if (i < arr.length - 1) cr.push([x + (cx! + 0.019) * s, y - 0.9 * s]);
+    ink.dot([x + cx! * s, y - (0.89 + h!) * s], 0.012 * s + 1, mul(white, 3), al * lit);
+  });
+  cr.push([x + 0.095 * s, y - 0.87 * s]);
+  ink.glow(cr, 1.3, mul(col, 2), al * lit);
+  ink.poly([[x - 0.095 * s, y - 0.87 * s], [x, y - 0.85 * s], [x + 0.095 * s, y - 0.87 * s]], 1.2, mul(col, 2), al * lit);
+  const sy = y - 1.3 * s, tw = 0.8 + 0.2 * Math.sin(t * 2.3);
+  for (const [ddx, ddy, l] of [[0, -1, 0.3], [0, 1, 0.3], [-1, 0, 0.2], [1, 0, 0.2]] as [number, number, number][]) {
+    ink.seg([x, sy], [x + ddx * l * s * 0.5, sy + ddy * l * s * 0.5], 2.2, mul(white, 2.5 * tw), ha);
+    ink.seg([x + ddx * l * s * 0.5, sy + ddy * l * s * 0.5], [x + ddx * l * s, sy + ddy * l * s], 1, mul(white, 1.8 * tw), ha);
+  }
+  ink.dot([x, sy], 0.03 * s + 1.5, mul(white, 4 * tw), ha);
+}
+
+/**
+ * The Sustainer of Heavenly Principles (Asmoday) as the game shows her: no wings; long pale hair streaming behind,
+ * and a great geometric halo of rings and turning square frames behind her head.
+ */
+function sustainer(ink: Ink, x: number, y: number, s: number, col: RGB, t: number, al = 1) {
+  const hy = y - 0.8 * s;
+  for (const [r, w, k] of [[0.55, 1.2, 1.3], [0.63, 0.8, 0.8], [0.95, 0.8, 0.6]] as [number, number, number][]) ink.circle(x, hy, r * s, w, mul(col, k), al, 1, 120, t * 0.03);
+  for (const [a0, r] of [[t * 0.12, 0.62], [-t * 0.09 + Math.PI / 4, 0.62], [t * 0.05 + Math.PI / 8, 0.9]] as [number, number][]) {
+    ink.glow([0, 1, 2, 3].map((i) => [x + Math.cos(a0 + i * Math.PI / 2) * r * s, hy + Math.sin(a0 + i * Math.PI / 2) * r * s] as P2), 1.1, mul(col, 1.1), al * 0.8, 1, true);
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = -t * 0.06 + i * Math.PI / 6, cx = x + Math.cos(a) * 0.95 * s, cy = hy + Math.sin(a) * 0.95 * s, d = 0.035 * s;
+    ink.poly([[cx, cy - d], [cx + d * 0.6, cy], [cx, cy + d], [cx - d * 0.6, cy], [cx, cy - d]], 1, mul(col, 1.8), al);
+  }
+  for (let i = 0; i < 9; i++) {                                                  // hair: strands streaming down and aside
+    const k = (i - 4) / 4, pts: P2[] = [];
+    for (let j = 0; j <= 14; j++) { const v = j / 14; pts.push([x + k * 0.07 * s + k * 0.35 * s * v + Math.sin(t * 0.8 + i + v * 3) * 0.06 * s * v, hy - 0.06 * s + v * (0.9 + 0.25 * (1 - Math.abs(k))) * s]); }
+    ink.poly(pts, 1, mul([1, 0.98, 0.95], 1.4), al * 0.7);
+  }
+  robed(ink, x, y, s, col, al);
 }
 
 /** A bolt of lightning between two points, re-forked every few frames. */
@@ -216,7 +349,7 @@ export const PICS: Record<string, PicDef> = {
         const speed = 70 + 18 * i;
         const head = ((k.lt * speed + i * 520) % 3600) - 500;
         ink.d = 0.45 + 0.55 * sc;
-        serpent(ink, (s) => [head - s * 1050 * sc, y0 + Math.sin(k.t * 0.7 + ph + s * 5) * 60 * sc + s * 40], 17 * sc, mul(col, 1.3), { seed: i, reveal: smoothstep(0.5 + i * 0.3, 2.5 + i * 0.3, k.lt) });
+        dragon(ink, (s) => [head - s * 640 * sc, y0 + Math.sin(k.t * 0.7 + ph + s * 4) * 50 * sc * s + s * 30], mul(col, 1.3), { reveal: smoothstep(0.5 + i * 0.3, 2.5 + i * 0.3, k.lt), flap: Math.sin(k.t * 1.6 + ph * 2), side: true });
       });
       ink.d = 1;
     },
@@ -264,7 +397,7 @@ export const PICS: Record<string, PicDef> = {
       // Nibelung leaving: a far dragon climbing toward the stars
       const u = smoothstep(k.L(1) - 1, k.L(1) + 6, k.t);
       ink.d = 0.3;
-      serpent(ink, (s) => [1200 + 300 * u - s * 260 * (1 - 0.5 * u), 520 - 560 * u + s * 120 + Math.sin(k.t + s * 8) * 16], 6 * (1 - 0.6 * u), mul(E.bone, 1.4), { seed: 77, al: 1 - smoothstep(0.8, 1, u) });
+      dragon(ink, (s) => [1200 + 300 * u - s * 220 * (1 - 0.5 * u), 520 - 560 * u + s * 100 * (1 - 0.5 * u) + Math.sin(k.t + s * 4) * 10 * s], mul(E.bone, 1.4), { al: 1 - smoothstep(0.8, 1, u), flap: Math.sin(k.t * 2.2), side: true });
       ink.d = 1;
     },
     fx: { kind: 'stars', col: E.bone, amount: 0.4 },
@@ -275,8 +408,9 @@ export const PICS: Record<string, PicDef> = {
     sky: (k) => ({ top: hx('#04050c'), mid: hx('#1c1a30'), hor: hx('#b89a60', 0.7), horY: 820, neb: 0.4, nebA: hx('#e8c47e', 0.3), nebB: hx('#6a5aa0', 0.3), stars: 0.4,
       glow: [960, 330, 200 + 50 * smoothstep(0, 6, k.lt)], glowCol: hx('#ffe6b0', 0.45), rays: 0.55, clouds: 0.8, cloudY: 760, cloudCol: hx('#141020'), cloudLit: hx('#ffe0a0', 0.7), crack: 0.12 * smoothstep(0, 4, k.lt), crackCol: hx('#ffe6b0', 0.8) }),
     art: (ink, k) => {
+      // an egg of light comes down; it breaks open on 「一位来自世界之外的存在降临了」
       const y = lerp(80, 330, ease.outCubic(smoothstep(0, 8, k.lt)));
-      lightBeing(ink, 960, y, 150, E.goldHot, k.t, smoothstep(0.3, 2.5, k.lt));
+      phanes(ink, 960, y, 150, E.goldHot, k.t, smoothstep(0.3, 2.5, k.lt), k.at(k.L(2) - 0.5, 6));
       ink.d = 0.8;
       for (let i = 0; i < 3; i++) cube(ink, 960, y, 260 + i * 70, k.t * (0.12 + i * 0.05) + i, 0.4 + i * 0.3, mul(E.gold, 0.7), 0.35 * smoothstep(1, 4, k.lt));
       ink.d = 1;
@@ -315,9 +449,8 @@ export const PICS: Record<string, PicDef> = {
       clouds: 0.7, cloudY: 330, cloudCol: hx('#120406'), cloudLit: hx('#ff8040', 1), seaY: 780, seaCol: hx('#3a1008'), seaLines: 0.5, crack: 0 * k.t }),
     art: (ink, k) => {
       for (let i = 0; i < 3; i++) {
-        const sc = 0.8 + 0.3 * i, ph = i * 2.1;
-        const cx = 960 + Math.cos(k.t * 0.25 + ph) * 520, cy = 360 + Math.sin(k.t * 0.4 + ph) * 120;
-        serpent(ink, (s) => [cx - Math.cos(k.t * 0.25 + ph + s * 2.2) * 420 * s, cy + Math.sin(k.t * 0.6 + s * 7 + ph) * 60 - s * 40], 12 * sc, mul(ELS[i * 2]![1], 1.4), { seed: i + 20 });
+        const ph = i * 2.1, path = (tt: number): P2 => [960 + Math.cos(tt * 0.25 + ph) * 520, 360 + Math.sin(tt * 0.4 + ph) * 120];
+        dragon(ink, trail(path, k.t, 330 + 90 * i), mul(ELS[i * 2]![1], 1.4), { flap: Math.sin(k.t * 2 + i * 1.7), side: true });
       }
       const shades: P2[] = [[420, 200], [760, 120], [1180, 140], [1520, 220]];
       shades.forEach((p, i) => {
@@ -371,7 +504,8 @@ export const PICS: Record<string, PicDef> = {
     back: (ink, k) => {
       const u = smoothstep(1, 9, k.lt);
       ink.d = 0.5;
-      serpent(ink, (s) => [960 + Math.sin(k.t * 0.5 + s * 5) * 120 * s + (1 - u) * 0, lerp(-200, 380, u) - s * 820 + Math.sin(s * 8 + k.t) * 40], 26, mul(E.abyss, 1.8), { seed: 5, dark: false });
+      // out of the rift and down to the left of it (straight down, the rift's glare would swallow the body)
+      dragon(ink, (s) => [lerp(880, 600, u) + s * 260 + Math.sin(k.t * 0.5 + s * 3) * 60 * s, lerp(-150, 450, u) - s * 780], mul(E.abyss, 2.4), { flap: Math.sin(k.t * 1.3) });
       tendrils(ink, 960, 900, 1400, 700, k.t, mul(E.abyss, 0.8), 30, 0.6);
       ink.d = 1;
     },
@@ -417,8 +551,8 @@ export const PICS: Record<string, PicDef> = {
       const u = clamp((k.t - k.seg.start - 0.5) / 2.7, 0, 1);
       const tipY = lerp(-300, 760, ease.inQuad(u));
       ink.d = 0.9;
-      nail(ink, 980, tipY - 900, tipY, 46, mul(E.goldHot, 1.6), 1, 0.02);
-      if (k.t < te) ink.glow([[980, tipY - 900], [980, tipY - 1800]], 6, mul(E.goldHot, 0.4), 0.5);
+      nail(ink, 980, tipY - 720, tipY, 44, mul(E.goldHot, 1.6), 1, 0.02, { spin: 0.5 * Math.min(k.t, te) });
+      if (k.t < te) ink.glow([[980, tipY - 720], [980, tipY - 1600]], 6, mul(E.goldHot, 0.4), 0.5);
       shock(ink, 980, 760, k.t, te, E.goldHot, 1100);
       ink.d = 1;
     },
@@ -432,10 +566,16 @@ export const PICS: Record<string, PicDef> = {
       LY((c, r) => { S.ridge(c, 900, 120, 280, 62, 0.6); S.city(c, 1150, 1600, 840, 160, r, 'gothic'); S.spire(c, 1380, 845, 40, 300); }, 0.8, hx('#202c40'), hx('#e8f4ff', 0.8), { fog: 0.3 }),
       LY((c, r) => { S.tree(c, 520, 1060, 640, 'dead', r); S.ground(c, 1030, 12, 6); }, 1, hx('#0c121e'), hx('#f0f8ff', 1.0)),
     ], light: [960, 200], fog: hx('#a0b0c8') },
-    art: (ink, k) => {
-      ink.d = 0.4;
-      const pieces: [number, number, number][] = [[880, 190, 0.3], [1010, 240, -0.2], [940, 300, 0.1]];
-      pieces.forEach(([x, y, tl], i) => nail(ink, x + Math.sin(k.t * 0.3 + i) * 6, y - 120, y + 90, 22, mul(E.cryo, 1.6), 0.9, tl * 0.4));
+    back: (ink, k) => {
+      // the Skyfrost Nail: its stump driven into the peak behind the city, its broken head drifting above in three pieces
+      ink.d = 0.5;
+      const Ly = 880, w = 30, gold = mul(E.goldHot, 1.2);
+      nail(ink, 960, 140, 140 + Ly, w, gold, 0.95, 0, { cut: [0.16, 1], seed: 3 });
+      const pieces: [number, number, number, number, number][] = [[0, 0.06, 905, 130, 0.35], [0.06, 0.11, 1045, 190, -0.3], [0.11, 0.16, 850, 235, 0.18]];
+      pieces.forEach(([c0, c1, px, py, tl], i) => {
+        const c = (c0 + c1) / 2, bx = px + Math.sin(k.t * 0.3 + i * 2) * 6, by = py + Math.sin(k.t * 0.45 + i) * 8;
+        nail(ink, bx - c * Ly * tl, by - c * Ly, by - c * Ly + Ly, w, gold, 0.9, tl, { cut: [c0, c1], seed: 11 + i });
+      });
       ink.d = 1;
     },
     fx: { kind: 'snow', col: E.bone, amount: 1.6 },
@@ -494,7 +634,9 @@ export const PICS: Record<string, PicDef> = {
   'diagram:thrones': {
     sky: () => night({ top: hx('#02030a'), mid: hx('#0d1430'), hor: hx('#2a2a40'), horY: 900, stars: 0.8, neb: 0.4, nebA: hx('#e8c47e', 0.2) }),
     art: (ink, k) => {
-      const kinds = ['king', 'queen', 'bishop', 'knight', 'rook', 'pawn', 'bishop'];
+      // the Gnoses' chess forms (BWIKI 神之心 / 萌娘百科 神之眼): anemo queen, geo rook, electro knight, dendro and hydro
+      // bishops, pyro knight, cryo king; order as ELS
+      const kinds = ['queen', 'rook', 'knight', 'bishop', 'bishop', 'knight', 'king'];
       rings(ink, 960, 520, 330, mul(E.gold, 0.7), 0.5, k.t, smoothstep(0, 2, k.lt));
       for (let i = 0; i < 7; i++) {
         const a = -Math.PI / 2 + i * Math.PI * 2 / 7;
@@ -543,7 +685,7 @@ export const PICS: Record<string, PicDef> = {
         const te = k.L(1) - 0.5 + i * 0.7; if (k.t < te) continue;
         const u = clamp((k.t - te) / 0.9, 0, 1);
         const x = 760 + i * 100, yT = lerp(-200, 860, ease.inQuad(u));
-        nail(ink, x, yT - 520, yT, 16, mul(E.geo, 1.8), 1, -0.08);
+        spear(ink, x, yT - 520, yT, 16, mul(E.geo, 1.8), 1, -0.08);
         if (u >= 1) shock(ink, x, 860, k.t, te + 0.9, E.geo, 220);
       }
       ink.d = 1;
@@ -581,7 +723,8 @@ export const PICS: Record<string, PicDef> = {
       LY((c) => { S.dunes(c, 820, 60, 220, 2); S.pyramid(c, 1150, 830, 760, 380, 9); }, 0.65, hx('#3a1810'), hx('#ffb070', 0.8), { fog: 0.3 }),
       LY((c) => S.dunes(c, 1000, 90, 300, 5), 1, hx('#1a0a06'), hx('#ffb070', 0.8)),
     ], light: [1500, 640], fog: hx('#a05030') },
-    art: (ink) => { ink.d = 0.8; nail(ink, 420, 380, 880, 36, mul(E.gold, 1.1), 1, 0.25); ink.d = 1; },
+    // the nail that buried the rainforest (萌娘百科 须弥地区), half sunk in the sand
+    back: (ink) => { ink.d = 0.5; nail(ink, 600, 330, 1060, 30, mul(E.gold, 1.2), 0.95, 0.2, { spin: 0.6 }); ink.d = 1; },
     fx: { kind: 'ash', col: hx('#ffb070', 0.8), amount: 1.2 },
   },
   fontaine_old: {
@@ -601,7 +744,7 @@ export const PICS: Record<string, PicDef> = {
     ], light: [960, 360] },
     back: (ink, k) => {
       ink.d = 0.6;
-      serpent(ink, (s) => { const a = k.t * 0.5 + s * 5.2; return [960 + Math.cos(a) * (180 + s * 240), 560 - s * 120 + Math.sin(a) * 60 + 80 * s]; }, 20, mul(E.pyro, 1.8), { seed: 33 });
+      dragon(ink, trail((tt) => [960 + Math.cos(tt * 0.45) * 330, 430 + Math.sin(tt * 0.45) * 110], k.t, 520), mul(E.pyro, 1.8), { flap: Math.sin(k.t * 1.8), side: true });
       ink.d = 1;
     },
     art: (ink, k) => { for (let i = 0; i < 40; i++) if (i % 3 === 0) { ink.d = 1; ink.dot([200 + i * 38 + 7, 1004 - 40], 3, mul(E.pyro, 3 + Math.sin(k.t * 9 + i)), 1); } },
@@ -796,7 +939,7 @@ export const PICS: Record<string, PicDef> = {
     sky: () => night({ top: hx('#010207'), mid: hx('#0a1030'), hor: hx('#202a48'), horY: 880, stars: 1.2, milky: 0.8, neb: 0.4, glow: [960, 180, 120], glowCol: hx('#ffe6b0', 0.6), rays: 0.6 }),
     art: (ink, k) => {
       const sep = smoothstep(k.L(1) - 0.5, k.L(1) + 4, k.t);
-      lightBeing(ink, 960, 200, 90, E.goldHot, k.t, 0.85, 2);
+      sustainer(ink, 960, 215, 100, E.goldHot, k.t, 0.85);
       const pos: P2[] = [[lerp(860, 520, sep), lerp(520, 560, sep)], [lerp(1060, 1400, sep), lerp(520, 470, sep)]];
       pos.forEach(([x, y], i) => {
         cube(ink, x, y, 90, k.t * (0.3 + i * 0.1) + i, 0.5 + i * 0.3, mul(E.goldHot, 1.6), k.at(k.seg.start + i * 0.8, 1.5));
@@ -928,7 +1071,7 @@ export const PICS: Record<string, PicDef> = {
   j_dragon: {
     sky: (k) => ({ top: hx('#02060c'), mid: hx('#10283a'), hor: hx('#5a8aa0'), horY: 800, stars: 0, neb: 0.3, nebA: hx('#4db6f5', 0.3), clouds: 0.8 * (1 - k.at(k.seg.start + 0.5, 2.5)) + 0.2, cloudY: 300, cloudCol: hx('#081018'), cloudLit: hx('#cfefff', 0.35), glow: [960, 260, 260], glowCol: hx('#cfefff', 0.6 * k.at(k.seg.start + 0.5, 2.5)), rays: 0.8, seaY: 830, seaCol: hx('#0e2a40') }),
     land: { layers: [ LY((c, r) => S.city(c, 100, 1820, 840, 120, r, 'belle'), 0.5, hx('#081420'), hx('#a8d8ff', 0.5), { fog: 0.4 }) ] },
-    art: (ink, k) => { const u = k.at(k.seg.start, 3.2); serpent(ink, (s) => [960 + Math.sin(k.t * 0.6 + s * 6) * 140 * s, lerp(1000, 380, u) + s * 760], 22, hx('#e0f6ff', 1.8), { seed: 9 }); },
+    art: (ink, k) => { const u = k.at(k.seg.start, 3.2); dragon(ink, (s) => [960 + Math.sin(k.t * 0.6 + s * 3) * 80 * s, lerp(1000, 380, u) + s * 700], hx('#e0f6ff', 1.8), { flap: Math.sin(k.t * 1.5) }); },
     fx: { kind: 'rain', col: E.bone, amount: 1.4 },
     post: () => ({ bloom: 0.7 }),
   },
@@ -976,7 +1119,7 @@ export const PICS: Record<string, PicDef> = {
       LY((c) => S.ridge(c, 880, 120, 300, 181, 0.6), 0.5, hx('#060a16'), hx('#8aa8e8', 0.5), { fog: 0.4 }),
       LY((c, r) => { S.ruins(c, 200, 1200, 960, 260, r); S.arch(c, 1500, 960, 300, 280, 22, 0.6); S.ground(c, 955, 6, 3); }, 1, hx('#03050c'), hx('#cfe0ff', 0.8)),
     ] },
-    back: (ink) => { ink.d = 0.45; nail(ink, 1560, 200, 820, 40, mul(E.gold, 1.0), 0.7, -0.08); ink.d = 1; },
+    back: (ink) => { ink.d = 0.45; nail(ink, 1560, 180, 1000, 34, mul(E.gold, 1.1), 0.8, -0.06, { spin: 0.3 }); ink.d = 1; },
     fx: { kind: 'stars', col: E.bone, amount: 0.4 },
   },
   irminsul_end: {

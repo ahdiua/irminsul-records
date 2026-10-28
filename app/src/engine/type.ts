@@ -3,76 +3,52 @@
 import * as opentype from 'opentype.js';
 
 /**
- * Font keys (subsets built by pipeline/08_fonts.py from the lyrics and UI strings):
- * Smiley Sans 得意黑 (display lyrics, oblique only), Source Han Sans CN 思源黑体 (UI, small type),
- * Source Han Serif CN 思源宋体 (the poetic register), LXGW WenKai 霞鹜文楷 (legible handwriting),
- * and four textures: Zpix 最像素 (KTV screen, phone UI), 方正兰亭圆 细 (neon tubes),
- * 方正毡笔黑 (marker graffiti), 方正硬笔行书 (ballpoint: the old song in the bridge notebook).
+ * Teyvat Chronicle sets every text in the game's own typeface, 汉仪润圆 65W (HYRunYuan; one weight, as in the game),
+ * subset by pipeline/fonts.py. The family helpers below keep the engine's vocabulary (sans / serif / display / hand
+ * ...) and all return it; weights are ignored.
  */
-export const SANS_WEIGHTS = [500, 700, 900] as const;
-export const SERIF_WEIGHTS = [600, 700, 900] as const;
-
 /** `features`: OpenType features switched on for the face (Canvas2D has no font-feature-settings). */
 type FontDef = { family: string; file: string; features?: string };
-// (Teyvat Chronicle ships 思源宋体 / 思源黑体 / 霞鹜文楷 only: display(), pixel(), neon(), marker() and pen()
-// fall back to them)
-const DEFS: FontDef[] = [
-  { family: 'WenKai', file: 'WenKai.ttf' },
-];
-for (const wt of SANS_WEIGHTS) DEFS.push({ family: `Sans-${wt}`, file: `SourceHanSans-${wt}.ttf` });
-for (const wt of SERIF_WEIGHTS) DEFS.push({ family: `Serif-${wt}`, file: `SourceHanSerif-${wt}.ttf` });
+const RUNYUAN = 'RunYuan';
+const DEFS: FontDef[] = [{ family: RUNYUAN, file: 'HYRunYuan.ttf' }];
 
-/** Convenience family names. */
+/** Convenience family names (all 汉仪润圆 65W). */
 export const F = {
-  /** 得意黑: the voice of the lyrics. */
   display(): string {
-    return 'Serif-900';
+    return RUNYUAN;
   },
-  /** 思源黑体 at the nearest static weight (500/700/900). */
-  sans(weight = 500): string {
-    return `Sans-${nearest(SANS_WEIGHTS as unknown as number[], weight)}`;
+  sans(_weight = 500): string {
+    return RUNYUAN;
   },
-  /** 思源宋体 at the nearest static weight (600/700/900). */
-  serif(weight = 600, _italic = false): string {
-    return `Serif-${nearest(SERIF_WEIGHTS as unknown as number[], weight)}`;
+  serif(_weight = 600, _italic = false): string {
+    return RUNYUAN;
   },
-  /** 霞鹜文楷: legible handwriting. */
   hand(): string {
-    return 'WenKai';
+    return RUNYUAN;
   },
-  /** 最像素 Zpix: dot-matrix screens (12 px design grid: use multiples of 12 px). */
   pixel(): string {
-    return 'Sans-500';
+    return RUNYUAN;
   },
-  /** 方正兰亭圆 细: neon tube lettering (stroke the outline, glow in GLSL). */
   neon(): string {
-    return 'Sans-500';
+    return RUNYUAN;
   },
-  /** 方正毡笔黑: marker / spray graffiti. */
   marker(): string {
-    return 'Sans-900';
+    return RUNYUAN;
   },
-  /** 方正硬笔行书: ballpoint handwriting. */
   pen(): string {
-    return 'WenKai';
+    return RUNYUAN;
   },
   // legacy names used by engine code (HUD, HDR test card)
-  archivo(_width = 100, weight = 700): string {
-    return F.sans(weight);
+  archivo(_width = 100, _weight = 700): string {
+    return RUNYUAN;
   },
   archivoItalic(_width = 100, _weight = 800): string {
-    return 'Serif-900';
+    return RUNYUAN;
   },
-  mono(weight = 400, _italic = false): string {
-    return F.sans(weight);
+  mono(_weight = 400, _italic = false): string {
+    return RUNYUAN;
   },
 };
-
-function nearest(list: number[], v: number) {
-  let best = list[0]!;
-  for (const x of list) if (Math.abs(x - v) < Math.abs(best - v)) best = x;
-  return best;
-}
 
 /** CSS font string for Canvas2D. */
 export const font = (family: string, sizePx: number) => `${sizePx}px "${family}"`;

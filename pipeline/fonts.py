@@ -1,8 +1,9 @@
-"""Stage: subset the fonts to the characters the film shows -> app/public/fonts/.
+"""Stage: subset the font to the characters the film shows -> app/public/fonts/.
 
-Character set: data/lyrics.json, data/chapters.json, pipeline/ui_strings.txt (display strings hard-coded in scenes),
-script_src.py (every narration line), plus ASCII and CJK punctuation. Source Han OTFs are CID-keyed CFF, which
-opentype.js reads unreliably, so their outlines are converted to TrueType quadratics (cu2qu, 1 unit) after subsetting.
+The film is set in the game's typeface, 汉仪润圆 65W (assets/fonts/, supplied by the user). Character set:
+data/lyrics.json, data/chapters.json, pipeline/ui_strings.txt (display strings hard-coded in scenes), script_src.py
+(every narration line), plus ASCII and CJK punctuation. A CFF (OTF) source would be converted to TrueType quadratics
+(cu2qu, 1 unit) after subsetting, as opentype.js reads CID-keyed CFF unreliably.
 
 usage:  uv run python pipeline/fonts.py
 """
@@ -17,13 +18,7 @@ from paths import DATA, FONTS, FONTS_OUT, PIPE
 from script_src import all_lines
 
 TARGETS = {
-    'WenKai.ttf': 'hand',
-    'SourceHanSans-500.ttf': 'sans-500',
-    'SourceHanSans-700.ttf': 'sans-700',
-    'SourceHanSans-900.ttf': 'sans-900',
-    'SourceHanSerif-600.ttf': 'serif-600',
-    'SourceHanSerif-700.ttf': 'serif-700',
-    'SourceHanSerif-900.ttf': 'serif-900',
+    'HYRunYuan.ttf': 'runyuan',
 }
 
 

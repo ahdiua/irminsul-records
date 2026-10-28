@@ -1,3 +1,6 @@
+# credentials (Vertex AI service-account key): never committed
+secrets/
+
 # python env + caches
 .venv/
 __pycache__/

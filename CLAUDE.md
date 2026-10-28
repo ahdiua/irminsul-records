@@ -2,8 +2,9 @@
 
 《提瓦特编年史》: a ~13.8 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
 dragon age to Snezhnaya (7.0). Everything on screen is code-rendered: **no AI-generated images, no game assets**.
-One exception, at the user's request: the seven element emblems come from the vector file the user supplied
-(`app/src/scenes/elements.svg`), so they match the game's icons.
+Exceptions, at the user's request: the seven element emblems come from the vector file the user supplied
+(`app/src/scenes/elements.svg`), so they match the game's icons; and every text is set in the game's typeface,
+汉仪润圆 65W (`assets/fonts/HYRunYuan-65W.ttf`, supplied by the user).
 The engine is a fork of `../黑凤梨/app` (itself pdoom-video): read `../pdoom-video/docs/ENGINE.md` for the engine
 rules (determinism on `f.t`, 1920×1080 logical px, linear HDR colours, `frameIdx` for per-frame jitter).
 
@@ -16,25 +17,41 @@ earlier abandoned attempt).
 - `pipeline/` — Python stages (uv project at the root; `uv sync`). `paths.py` = every path.
   - `script_src.py` — THE SCRIPT: chapters → shots (picture id, camera move, fx, tag) → lines (`L` narration,
     `Q` quotation of 《日月前事》 read by the second voice, `plate=` for montage lines).
-  - `tts.py` → `build/tts/<hash>.wav|json` (Gemini 3.8 Flash TTS via OpenRouter `/audio/speech`, key `$env:OR_API`
-    — never print it; voices + delivery `instructions` in `VOICES`; cached by model+text+voice). `--audition` renders
-    sample lines in candidate voices. Gemini gives no word times: `align.py` force-aligns the known text (pinyin over
-    torchaudio MMS_FA, own CTC Viterbi); low-scoring takes (skipped/invented words) are re-taken.
+  - `tts.py` → `build/tts/<hash>.wav|json` (Gemini 3.8 Flash TTS on Vertex AI, `gemini-3.8-flash-tts`, global
+    endpoint, via `vertex.py`; service-account key `secrets/gcp_key.json`, gitignored — never print or commit it;
+    voices + delivery style in `VOICES`; cached by model+spoken text+voice). Gemini 3.8 reads the text verbatim: the
+    style goes in each part's `speech_metadata.style` (a prompt prefix gets spoken; systemInstruction → 400). Lines read
+    one request each changed mood between lines, so `--whole` reads the film in a few ~5-minute takes of whole chapters
+    (both voices in one take: Gemini multi-speaker, `speech_metadata.speaker` per part; each take opens with the previous
+    take's last line, dropped) and cuts them back into lines at pauses (`split`, a DP on expected lengths). One take of
+    the whole film went bad after ~400 s (dropped words). A plain run only fills lines missing from the cache, each read
+    with its neighbours. Mispronunciations: `SAY` (homophones in what Gemini reads only). Gemini gives no word times:
+    `align.py` force-aligns the known text (pinyin over torchaudio MMS_FA, own CTC Viterbi); failing lines
+    (skipped/invented words) are re-read in context.
   - `assemble.py` → `data/chapters.json` (the edit), `data/lyrics.json` (subtitle cues ≤20 chars with word times),
     `build/narration.wav`. Pacing constants at the top (cards, gaps, quote air).
   - `music.py` → `build/music/score.wav` (synthesised: pads, choir, FM bells, harp, drone, taiko, booms, hall).
     Event hits are found from chapters.json by shot plate id (`shot_start` / `line_start`).
   - `mix.py` → `audio/chronicle.m4a` + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
-  - `fonts.py` → `app/public/fonts/` (subset from data + `ui_strings.txt` + script). Add new display strings there.
+  - `fonts.py` → `app/public/fonts/HYRunYuan.ttf` (subset from data + `ui_strings.txt` + script). Add new display
+    strings there. `engine/type.ts`: every family helper (`F.sans/serif/display/...`) returns this one face.
   - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet),
-    `qa_tts.py` (STT of every take diffed against the script in pinyin; run after any TTS change).
+    `qa_tts.py` (STT of every take diffed against the script in pinyin; run after any TTS change; `--retake` reads
+    differing lines again in context and keeps the closest — on the first chunked read 15 of 16 cleared, i.e. they
+    were real misreads). STT stays on OpenRouter (`microsoft/mai-transcribe-2`, key `$env:OR_API`, never printed) —
+    the user's choice. Takes of >3 lines are kept in `build/tts/takes/`: `tts.py --recut <takes>` re-cuts them
+    without API calls (cut() moves a cut beside a failing line to the pause that aligns both lines best).
 - `app/src/scenes/` — one scene for the whole film (`chronicle.ts`, every chapter entry shares one `Film`):
   - `_film.ts` data → segments (one per shot; montage shots one per line; title; endcard), camera moves, `project()`.
   - `_sky.ts` parametric sky pass (gradient, nebula, stars/milky, glow+rays, ≤3 moons, aurora, clouds, sea, rift,
     false-sky shell + cracks). `_land.ts` silhouette layers: Canvas2D paths → cached RGBA mask → GLSL shading
     (fog, engraving hatch, rim light, inscribed contour). `_shapes.ts` the path vocabulary.
-  - `_art.ts` line art (`Ink` over LineBatch: serpent/wyvern dragons, `makeTree`/`drawTree`, nail, cube, chess,
-    sigil, rings, moon `shatter`, tendrils, particles). `_pics.ts` EVERY PICTURE (keyed by the script's plate ids).
+  - `_art.ts` line art (`Ink` over LineBatch: `dragon` (western, along a spine; `side` view for flight across the
+    frame, top view for climbing/diving) and `wyvern` (Dvalin, Durin), `makeTree`/`drawTree`, `nail` (after the
+    game's Skyfrost Nail; `cut` draws broken pieces), `spear` (Liyue's stone spears), cube, chess,
+    sigil, rings, moon `shatter`, tendrils, particles). `_pics.ts` EVERY PICTURE (keyed by the script's plate ids),
+    plus the figures `phanes` / `sustainer`. Why things look as they do (nail, Phanes, Gnosis pieces): RESEARCH.md
+    「画面的依据」.
   - `_emblem.ts` element emblems: `elements.svg` paths → atlas mask (glyph + two glows) → additive pass with a
     burn-in reveal; a picture lists them in `emblems: (k) => [...]` (`sy` < 1 lays one flat on the ground).
   - `_overlay.ts` typography: subtitles, quote cards lit per character, chapter cards + year ruler, era stamp,

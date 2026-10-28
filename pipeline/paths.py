@@ -15,17 +15,11 @@ ART = APP / "public" / "art"    # the plates the app draws
 FONTS_OUT = APP / "public" / "fonts"
 MASTER = ROOT / "audio" / "chronicle.m4a"
 SR = 48000
+GCP_KEY = ROOT / "secrets" / "gcp_key.json"   # Vertex AI service-account key (gitignored; never print it)
 
-_UF = Path.home() / "AppData" / "Local" / "Microsoft" / "Windows" / "Fonts"
+# the game's own typeface (汉仪润圆 65W), supplied by the user; every text in the film is set in it
 FONTS = {
-    "sans-500": _UF / "思源黑体 CN Medium.otf",
-    "sans-700": _UF / "思源黑体 CN Bold 2.001.otf",
-    "sans-900": _UF / "思源黑体 CN Heavy.otf",
-    "serif-600": _UF / "思源宋体 CN SemiBold.otf",
-    "serif-700": _UF / "思源宋体 CN Bold.otf",
-    "serif-900": _UF / "思源宋体 CN Heavy.otf",
-    "display": BUILD / "dl" / "smiley" / "SmileySans-Oblique.ttf",
-    "hand": BUILD / "dl" / "LXGWWenKai-Regular.ttf",
+    "runyuan": ROOT / "assets" / "fonts" / "HYRunYuan-65W.ttf",
 }
 
 for d in (BUILD, TTS, MUSIC, CACHE, ART_RAW, QA, DATA, ART, FONTS_OUT, MASTER.parent):

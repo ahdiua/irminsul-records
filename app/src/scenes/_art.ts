@@ -1,8 +1,8 @@
-// Line art: everything drawn as glowing strokes on top of the land (dragons, the world tree, nails, sigils, chess
+// Line art: everything drawn as glowing strokes on top of the land (western dragons, the world tree, nails, sigils, chess
 // pieces, cubes, moon shards, rings) and the particles. Plate coordinates (logical px, y down) go through the
 // camera at a parallax depth; colours are linear and may exceed 1 (they bloom).
 import { LineBatch } from '../engine/lines';
-import { clamp, fbm1, hash, lerp, mulberry32, noise1, noise2, smoothstep } from '../engine/util';
+import { clamp, fbm1, hash, lerp, mulberry32, noise2, smoothstep } from '../engine/util';
 import { project, type Cam } from './_film';
 import type { RGB } from './_sky';
 
@@ -60,79 +60,154 @@ export const mixc = (a: RGB, b: RGB, k: number): RGB => [lerp(a[0], b[0], k), le
 
 // ------------------------------------------------------------------ dragons
 
+/** Piecewise-linear profile through (u, value) knots. */
+const knots = (k: [number, number][]) => (u: number) => {
+  let i = 1; while (i < k.length - 1 && k[i]![0] < u) i++;
+  const [u0, v0] = k[i - 1]!, [u1, v1] = k[i]!; return lerp(v0, v1, clamp((u - u0) / (u1 - u0), 0, 1));
+};
+// side view: back and belly offsets (units of W): snout, skull, jaw, slim neck, deep chest, hips, tail
+const BACK = knots([[0, 0.05], [0.015, 0.22], [0.04, 0.5], [0.06, 0.44], [0.078, 0.28], [0.12, 0.25], [0.18, 0.32], [0.25, 0.75], [0.32, 0.9], [0.4, 0.75], [0.47, 0.48], [0.6, 0.28], [0.8, 0.14], [1, 0.03]]);
+const BELLY = knots([[0, 0.05], [0.015, 0.14], [0.035, 0.3], [0.055, 0.42], [0.078, 0.28], [0.12, 0.27], [0.18, 0.38], [0.25, 0.95], [0.32, 1.3], [0.4, 1], [0.47, 0.5], [0.6, 0.26], [0.8, 0.12], [1, 0.03]]);
+// top view: half-width
+const HALF = knots([[0, 0.2], [0.025, 0.5], [0.045, 0.62], [0.068, 0.42], [0.1, 0.32], [0.17, 0.36], [0.24, 0.85], [0.32, 1.05], [0.4, 0.95], [0.45, 0.62], [0.5, 0.5], [0.7, 0.24], [1, 0.05]]);
+
 /**
- * An eastern serpent dragon along a spine `spine(s)` (s: 0 head .. 1 tail), drawn as two flanks, belly scales,
- * a dorsal crest, a horned head, whiskers and four small limbs. `w` = max body half-width.
+ * A western dragon (Teyvat's dragons are horned, four-legged and bat-winged) along a spine `spine(s)` (s: 0 snout ..
+ * 1 tail tip). Proportions come from the spine's length: horned head, slim neck, deep torso carrying the wings and four
+ * legs, a long tail ending in a spade. `side`: seen side-on, wings raised over the back (near and far wing), legs
+ * hanging — for flight across the frame; otherwise seen from above/below with the wings spread symmetrically — for
+ * climbing or diving. `flap` −1..1 swings the wings; `reveal` draws it from the snout back.
  */
-export function serpent(ink: Ink, spine: (s: number) => P2, w: number, col: RGB, o: { reveal?: number; seed?: number; al?: number; dark?: boolean } = {}) {
-  const N = 90, rev = o.reveal ?? 1, al = o.al ?? 1, seed = o.seed ?? 1;
-  const pts: P2[] = [], nrm: P2[] = [], wid: number[] = [];
-  for (let i = 0; i <= N; i++) {
-    const s = i / N;
-    pts.push(spine(s));
-  }
-  for (let i = 0; i <= N; i++) {
-    const a = pts[Math.max(0, i - 1)]!, b = pts[Math.min(N, i + 1)]!;
-    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
-    nrm.push([-dy / L, dx / L]);
-    const s = i / N;
-    wid.push(w * (s < 0.08 ? lerp(0.55, 1, s / 0.08) : Math.pow(1 - (s - 0.08) / 0.92, 0.75)) * (0.92 + 0.08 * Math.sin(s * 40)));
-  }
-  const n = Math.max(2, Math.floor(N * rev));
-  const L: P2[] = [], R: P2[] = [];
-  for (let i = 0; i <= n; i++) {
-    L.push([pts[i]![0] + nrm[i]![0] * wid[i]!, pts[i]![1] + nrm[i]![1] * wid[i]!]);
-    R.push([pts[i]![0] - nrm[i]![0] * wid[i]!, pts[i]![1] - nrm[i]![1] * wid[i]!]);
-  }
+export function dragon(ink: Ink, spine: (s: number) => P2, col: RGB, o: { reveal?: number; al?: number; dark?: boolean; flap?: number; side?: boolean } = {}) {
+  const rev = o.reveal ?? 1, al = o.al ?? 1, flap = o.flap ?? 0;
   const core = o.dark ? mul(col, 0.5) : col;
-  ink.glow(L, 1.6, core, al);
-  ink.glow(R, 1.2, mul(core, 0.8), al);
-  // belly scales: chevrons pointing to the head
-  for (let i = 3; i < n - 1; i += 2) {
-    const c = pts[i]!, f = pts[i - 2]!, k = wid[i]! * 0.85;
-    const l: P2 = [c[0] + nrm[i]![0] * k, c[1] + nrm[i]![1] * k], r: P2 = [c[0] - nrm[i]![0] * k, c[1] - nrm[i]![1] * k];
-    const m: P2 = [lerp(c[0], f[0], 0.55), lerp(c[1], f[1], 0.55)];
-    ink.seg(l, m, 0.9, mul(core, 0.45), al);
-    ink.seg(m, r, 0.9, mul(core, 0.45), al);
-  }
-  // dorsal crest
-  for (let i = 5; i < n - 6; i += 5) {
-    const c = L[i]!, h = wid[i]! * (0.55 + 0.35 * Math.abs(noise1(i * 0.7, seed)));
-    const tip: P2 = [c[0] + nrm[i]![0] * h + (pts[i + 2]![0] - pts[i]![0]) * 0.8, c[1] + nrm[i]![1] * h + (pts[i + 2]![1] - pts[i]![1]) * 0.8];
-    ink.seg(c, tip, 1.1, core, al * 0.9);
-    ink.seg(tip, L[i + 2]!, 0.9, mul(core, 0.7), al * 0.9);
-  }
-  // limbs
-  for (const s of [0.16, 0.42]) {
-    const i = Math.floor(N * s); if (i > n) continue;
-    for (const sg of [1, -1]) {
-      const b: P2 = [pts[i]![0] - nrm[i]![0] * wid[i]! * sg * 0.9, pts[i]![1] - nrm[i]![1] * wid[i]! * sg * 0.9];
-      const k: P2 = [b[0] - nrm[i]![0] * w * 1.3 * sg + (pts[i + 3]![0] - pts[i]![0]), b[1] - nrm[i]![1] * w * 1.3 * sg + (pts[i + 3]![1] - pts[i]![1])];
-      const f: P2 = [k[0] + (pts[i - 2]![0] - pts[i]![0]) * 0.8, k[1] + (pts[i - 2]![1] - pts[i]![1]) * 0.8 - w * 0.2];
-      ink.poly([b, k, f], 1.3, core, al);
-      for (let c = -1; c <= 1; c++) ink.seg(f, [f[0] + (f[0] - k[0]) * 0.3 + c * w * 0.18, f[1] + (f[1] - k[1]) * 0.3 + w * 0.15], 0.9, core, al);
+  // resample the spine by arc length
+  const M = 160, raw: P2[] = Array.from({ length: M + 1 }, (_, i) => spine(i / M)), cum = [0];
+  for (let i = 1; i <= M; i++) cum.push(cum[i - 1]! + Math.hypot(raw[i]![0] - raw[i - 1]![0], raw[i]![1] - raw[i - 1]![1]));
+  const Ltot = cum[M]! || 1, W = Ltot / 20;
+  const at = (u: number): P2 => {
+    const d = clamp(u, 0, 1) * Ltot; let i = 1;
+    while (i < M && cum[i]! < d) i++;
+    const k = (d - cum[i - 1]!) / Math.max(1e-6, cum[i]! - cum[i - 1]!);
+    return [lerp(raw[i - 1]![0], raw[i]![0], k), lerp(raw[i - 1]![1], raw[i]![1], k)];
+  };
+  const fwd = (u: number): P2 => { const a = at(u + 0.01), b = at(u - 0.01), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+  // a point in the body's frame at u: f along the body (toward the head), n across, both in units of W
+  const B = (u: number, f: number, n: number): P2 => { const p = at(u), t = fwd(u); return [p[0] + (t[0] * f - t[1] * n) * W, p[1] + (t[1] * f + t[0] * n) * W]; };
+  const n = 90, end = Math.max(0.02, rev);
+  // the membrane between a wing's fingertips (scalloped toward the wrist) back to its root on the body, faintly ruled
+  const membrane = (wrist: P2, tips: P2[], root: P2, a: number) => {
+    const edge: P2[] = [tips[0]!];
+    for (let i = 1; i <= tips.length; i++) {
+      const p = tips[i - 1]!, q = i < tips.length ? tips[i]! : root;
+      edge.push(lerp2(lerp2(p, q, 0.5), wrist, i < tips.length ? 0.14 : 0.1), q);
     }
+    ink.glow(edge, 1.0, mul(core, 0.85), a);
+    for (let i = 0; i < 18; i++) {
+      const x = i / 17 * (edge.length - 1), j = Math.min(edge.length - 2, Math.floor(x));
+      const q = lerp2(edge[j]!, edge[j + 1]!, x - j);
+      ink.seg(lerp2(wrist, q, 0.12), lerp2(wrist, q, 0.96), 0.6, mul(core, 0.22), a);
+    }
+  };
+  const spade = (V: (u: number, f: number, v: number) => P2) => { if (rev >= 1) ink.glow([V(0.965, 0, 0.08), V(0.975, 0.1, 0.6), V(1, -0.8, 0), V(0.975, 0.1, -0.6), V(0.965, 0, -0.08)], 1.2, core, al); };
+
+  if (o.side) {
+    // "up" is whichever side of the body faces the top of the frame; sig fades to 0 when the torso points up/down
+    // (wings and legs are then seen edge-on), its sign keeps the body's back on top
+    const sig = clamp(-fwd(0.3)[0] * 2.5, -1, 1), sg = sig >= 0 ? 1 : -1;
+    const S = (u: number, f: number, v: number) => B(u, f, sg * v), Q = (u: number, f: number, v: number) => B(u, f, sig * v);
+    const top = Array.from({ length: n + 1 }, (_, i) => { const u = end * i / n; return S(u, 0, BACK(u)); });
+    const bot = Array.from({ length: n + 1 }, (_, i) => { const u = end * i / n; return S(u, 0, -BELLY(u)); });
+    ink.glow([...top.reverse(), S(0, 0.15, 0), ...bot], 1.5, core, al);
+    ink.poly([S(0.003, 0, -0.02), S(0.035, 0, -0.1), S(0.05, 0, -0.05)], 0.9, mul(core, 0.8), al);       // mouth
+    ink.dot(S(0.028, 0, 0.17), 0.1 * W + 1, mul(col, 2.6), al);
+    ink.glow([S(0.045, 0, 0.4), S(0.045, -0.8, 0.85), S(0.045, -1.7, 1.05), S(0.045, -2.3, 0.95)], 1.3, core, al);
+    ink.poly([S(0.055, 0, 0.36), S(0.055, -0.6, 0.62), S(0.055, -1.1, 0.6)], 1.1, mul(core, 0.8), al);
+    for (let u = 0.08; u < Math.min(end, 0.88); u += 0.032) {                                  // spines along the back
+      const h = 0.12 + 0.22 * Math.sin(Math.PI * clamp((u - 0.08) / 0.6, 0, 1));
+      ink.poly([S(u, 0.15, BACK(u)), S(u, -0.35, BACK(u) + h), S(u - 0.012, 0, BACK(u - 0.012))], 0.9, mul(core, 0.75), al);
+    }
+    for (let u = 0.2; u < Math.min(end, 0.62); u += 0.02) ink.seg(S(u, 0, -BELLY(u) * 0.55), S(u - 0.008, 0, -BELLY(u)), 0.7, mul(core, 0.35), al);
+    ink.poly(Array.from({ length: 22 }, (_, i) => { const u = 0.2 + 0.42 * i / 21; return S(u, 0, -BELLY(u) * 0.55); }), 0.7, mul(core, 0.35), al);
+    // legs hanging, tucked back in flight (a wide faint stroke gives them flesh); the far pair dimmer, a little ahead
+    const limb = (pts: P2[], th: number, a: number) => {
+      for (let i = 1; i < pts.length; i++) ink.seg(pts[i - 1]!, pts[i]!, th * W * (1 - 0.25 * i), mul(core, 0.16), a);
+      ink.glow(pts, 1.2, core, a);
+    };
+    for (const [df, a] of [[0.4, 0.45], [0, 1]] as [number, number][]) {
+      const fu = 0.27, hu = 0.42;
+      if (end >= fu) {
+        const sh = S(fu, df, -BELLY(fu) * 0.55), el = Q(fu, df - 0.5, -(BELLY(fu) + 0.6)), wr = Q(fu, df - 1.0, -(BELLY(fu) + 1.1));
+        limb([sh, el, wr], 0.42, al * a);
+        for (const c of [-0.18, 0, 0.18]) ink.seg(wr, Q(fu, df - 1.3 + c, -(BELLY(fu) + 1.3)), 0.9, core, al * a);
+      }
+      if (end >= hu) {
+        const hp = S(hu, df, -BELLY(hu) * 0.4), kn = Q(hu, df + 0.4, -(BELLY(hu) + 0.55)), hk = Q(hu, df - 0.45, -(BELLY(hu) + 0.95)), ft = Q(hu, df - 0.95, -(BELLY(hu) + 1.25));
+        limb([hp, kn, hk, ft], 0.6, al * a);
+        for (const c of [-0.18, 0, 0.18]) ink.seg(ft, Q(hu, df - 1.25 + c, -(BELLY(hu) + 1.4)), 0.9, core, al * a);
+      }
+    }
+    // wings raised over the back: built in the wing's own (forward, up) plane, turned about the root by the flap
+    const wa = al * smoothstep(0.3, 0.5, end), Sp = 0.42 * Ltot / W, phi = 0.35 - 0.75 * flap;
+    if (wa > 0.01) for (const [k, df, dv, a] of [[0.82, 0.35, 0.18, 0.5], [1, 0, 0, 1]] as [number, number, number, number][]) {
+      const ru = 0.25, p0 = S(ru, df, BACK(ru) + dv), t = fwd(ru), nn: P2 = [-t[1], t[0]];   // root on the back line
+      const Wg = (fa: number, ub: number): P2 => {
+        const fr = (fa * Math.cos(phi) - ub * Math.sin(phi)) * k * Sp * W, ur = sig * (fa * Math.sin(phi) + ub * Math.cos(phi)) * k * Sp * W;
+        return [p0[0] + t[0] * fr + nn[0] * ur, p0[1] + t[1] * fr + nn[1] * ur];
+      };
+      const root = Wg(0, 0), elbow = Wg(-0.05, 0.28), wrist = Wg(0.12, 0.55);
+      ink.glow([root, elbow, wrist], 1.7, core, wa * a);
+      ink.seg(wrist, Wg(0.17, 0.6), 1.2, core, wa * a);
+      const tips = [[0.15, 0.55], [0.55, 0.58], [0.95, 0.5], [1.3, 0.4]].map(([th, l]) => Wg(0.12 - Math.sin(th!) * l!, 0.55 + Math.cos(th!) * l!));
+      for (const tp of tips) ink.glow([wrist, tp], 1.0, mul(core, 0.9), wa * a);
+      membrane(wrist, tips, S(0.42, df, BACK(0.42) + dv), wa * a);
+    }
+    spade(S);
+    return;
   }
-  // head
-  const h0 = pts[0]!, dir: P2 = [pts[0]![0] - pts[3]![0], pts[0]![1] - pts[3]![1]];
-  const dl = Math.hypot(dir[0], dir[1]) || 1; const fx = dir[0] / dl, fy = dir[1] / dl;
-  const nx = -fy, ny = fx, hw = w * 1.15;
-  const H = (a: number, b: number): P2 => [h0[0] + fx * a * hw + nx * b * hw, h0[1] + fy * a * hw + ny * b * hw];
-  ink.glow([H(-0.5, 0.8), H(0.6, 0.75), H(1.9, 0.35), H(2.3, 0.05), H(2.0, -0.25), H(1.2, -0.55), H(0.3, -0.75), H(-0.5, -0.8)], 1.5, core, al);
-  ink.dot(H(1.0, 0.38), 2.2, mul(col, 2.5), al);
-  // horns sweeping back, whiskers trailing
-  ink.poly([H(0.2, 0.7), H(-0.6, 1.4), H(-1.6, 1.7), H(-2.3, 1.5)], 1.4, core, al);
-  ink.poly([H(0.0, 0.6), H(-0.9, 1.0), H(-1.7, 0.95)], 1.1, core, al);
+
+  const hw = HALF;
+  // body outline, closed at the snout
+  const side = (sg: number) => Array.from({ length: n + 1 }, (_, i) => { const u = end * i / n; return B(u, 0, sg * hw(u)); });
+  ink.glow([...side(1).reverse(), B(0, 0.25, 0), ...side(-1)], 1.5, core, al);
+  // dorsal ridge: small spines pointing back down the centre line
+  for (let u = 0.1; u < Math.min(end, 0.8); u += 0.032) {
+    const h = hw(u);
+    ink.poly([B(u, 0, 0.28 * h), B(u, -0.4, 0), B(u, 0, -0.28 * h)], 0.9, mul(core, 0.6), al);
+  }
+  // head: eyes, a long pair of horns swept back and a short pair below them
+  ink.dot(B(0.028, 0, 0.32), 0.1 * W + 1, mul(col, 2.6), al); ink.dot(B(0.028, 0, -0.32), 0.1 * W + 1, mul(col, 2.6), al);
   for (const sg of [1, -1]) {
-    const wh: P2[] = [];
-    for (let k = 0; k <= 16; k++) {
-      const u = k / 16;
-      const b = pts[Math.min(n, Math.floor(u * 10))]!;
-      wh.push([lerp(H(2.0, 0.3 * sg)[0], b[0] + nrm[0]![0] * w * 1.6 * sg, u) + Math.sin(u * 7 + seed) * w * 0.3, lerp(H(2.0, 0.3 * sg)[1], b[1] + nrm[0]![1] * w * 1.6 * sg, u) + Math.cos(u * 5 + seed) * w * 0.3]);
-    }
-    ink.poly(wh, 0.9, mul(core, 0.8), al);
+    ink.glow([B(0.045, 0, sg * 0.55), B(0.045, -0.9, sg * 0.9), B(0.045, -1.8, sg * 1.0), B(0.045, -2.4, sg * 0.8)], 1.3, core, al);
+    ink.poly([B(0.06, 0, sg * 0.48), B(0.06, -0.6, sg * 0.75), B(0.06, -1.1, sg * 0.72)], 1.1, mul(core, 0.8), al);
   }
+  // legs, tucked back along the flanks, three claws each
+  for (const u of [0.27, 0.42]) {
+    if (end < u) continue;
+    for (const sg of [1, -1]) {
+      const h = hw(u), base = B(u, 0, sg * h), knee = B(u, -0.35, sg * (h + 0.55)), foot = B(u, -1.0, sg * (h + 0.45));
+      ink.glow([base, knee, foot], 1.2, core, al);
+      for (const c of [-0.18, 0, 0.18]) ink.seg(foot, B(u, -1.3, sg * (h + 0.45 + c)), 0.9, core, al);
+    }
+  }
+  // wings, bat-like: a short upper arm, a forearm reaching forward along the leading edge, four long fingers fanning
+  // from the wrist and the membrane they spread, scalloped between the fingertips and running back to the hip
+  const wa = al * smoothstep(0.3, 0.5, end), Sp = 0.42 * Ltot / W, sp = 0.85 + 0.15 * flap, sw = 0.1 * flap;
+  if (wa > 0.01) for (const sg of [1, -1]) {
+    const out = (n: number) => sg * (0.85 + n * Sp * sp);
+    const A = B(0.25, 0, sg * 0.85), hip = B(0.43, 0, sg * 0.8);
+    const elbow = B(0.25, -0.04 * Sp, out(0.17)), wrist = B(0.25, (0.13 + sw) * Sp, out(0.4));
+    ink.glow([A, elbow, wrist], 1.7, core, wa);
+    ink.seg(wrist, B(0.25, (0.19 + sw) * Sp, out(0.42)), 1.2, core, wa);                      // thumb claw
+    const tips = [[-0.12, 0.62], [0.35, 0.6], [0.8, 0.52], [1.25, 0.42]].map(([a, l]) =>
+      B(0.25, (0.13 + sw) * Sp - Math.sin(a!) * l! * Sp * sp, out(0.4 + Math.cos(a!) * l!)));
+    for (const tp of tips) ink.glow([wrist, tp], 1.0, mul(core, 0.9), wa);
+    membrane(wrist, tips, hip, wa);
+  }
+  spade(B);
 }
+
+const lerp2 = (a: P2, b: P2, k: number): P2 => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
 
 /** A winged western dragon (Dvalin, Durin): body, neck, tail and two flapping wings. */
 export function wyvern(ink: Ink, x: number, y: number, s: number, flap: number, col: RGB, facing = 1, al = 1) {
@@ -210,8 +285,8 @@ export function drawTree(ink: Ink, tree: Branch[], g: number, col: RGB, leaf: RG
 
 // ------------------------------------------------------------------ heavenly things
 
-/** A Celestial Nail: a long tapered spike from (x, y0) to its tip at (x, y1), banded, with a light core. */
-export function nail(ink: Ink, x: number, y0: number, y1: number, w: number, col: RGB, al = 1, tilt = 0) {
+/** A stone spear (Rex Lapis's spears in Liyue): a long tapered spike from (x, y0) to its tip at (x, y1), banded, with a light core. */
+export function spear(ink: Ink, x: number, y0: number, y1: number, w: number, col: RGB, al = 1, tilt = 0) {
   const P = (u: number, s: number): P2 => [x + tilt * (y1 - y0) * u + s * w * (1 - u) * (u < 0.04 ? u / 0.04 : 1), lerp(y0, y1, u)];
   const L: P2[] = [], R: P2[] = [], C: P2[] = [];
   for (let i = 0; i <= 30; i++) { const u = i / 30; L.push(P(u, -1)); R.push(P(u, 1)); C.push(P(u, 0)); }
@@ -219,6 +294,139 @@ export function nail(ink: Ink, x: number, y0: number, y1: number, w: number, col
   ink.poly(C, w * 0.5, mul(col, 0.25), al);
   ink.poly(C, 1.2, mul(col, 2.2), al);
   for (const u of [0.05, 0.1, 0.22, 0.4]) ink.seg(P(u, -1.15), P(u, 1.15), 1.3, col, al);
+}
+
+export interface NailOpts {
+  /** the part of the length to draw, 0 head .. 1 point; broken ends get a jagged glowing edge */
+  cut?: [number, number];
+  /** turn about the long axis (radians): the lattice, crown points and gems wrap round the column */
+  spin?: number;
+  gem?: RGB;
+  body?: RGB;
+  seed?: number;
+}
+
+/**
+ * A Celestial Nail, after the Skyfrost Nail in Dragonspine: a pale fluted column; at the head a gold crown band of
+ * pointed arches over an interlaced gold lattice set with blue gems; gem lozenges down the shaft; a tapered point.
+ * Drawn from the head (x, y0) to the point (x + tilt·(y1 − y0), y1); w = shaft half-width; `col` = gold and glow.
+ * Ornament is laid out on the cylinder (angle θ about the axis, front θ = 0) and projected, so it wraps.
+ */
+export function nail(ink: Ink, x: number, y0: number, y1: number, w: number, col: RGB, al = 1, tilt = 0, o: NailOpts = {}) {
+  const hx0 = x, hy0 = y0, tx = x + tilt * (y1 - y0), ty = y1;
+  const len = Math.hypot(tx - hx0, ty - hy0) || 1;
+  const dx = (tx - hx0) / len, dy = (ty - hy0) / len, nx = dy, ny = -dx;      // n: across, toward the lit (left) side
+  const gem = o.gem ?? [0.25, 0.9, 2.4], body = o.body ?? [0.78, 0.83, 0.9], spin = o.spin ?? 0;
+  const [c0, c1] = o.cut ?? [0, 1];
+  const aMin = c0 * len, aMax = c1 * len;
+  const capH = 1.1 * w, bandA = capH, bandH = 1.3 * w, latA = bandA + bandH, latH = 5.2 * w, colA = latA + latH;
+  const tipL = Math.min(len * 0.16, 7 * w), tipA = len - tipL;
+  const R = (a: number) => a < capH ? w * (0.3 + 0.68 * Math.sqrt(Math.max(0, 1 - ((capH - a) / capH) ** 2)))
+    : a < latA ? w * 1.12 : a < tipA ? w : w * Math.pow(Math.max(0, (len - a) / tipL), 0.85);
+  const P = (a: number, s: number): P2 => [hx0 + dx * a + nx * s, hy0 + dy * a + ny * s];
+  const E = 0.14;                                                               // rings seen from below bulge up
+  const onCyl = (a: number, th: number, r = R(a)): [number, number] => [a - E * r * Math.cos(th), r * Math.sin(th)];
+  // breaks run slantwise across the column: the drawn part is aMin + slMin·s <= a <= aMax + slMax·s
+  const rnd = mulberry32(o.seed ?? 5);
+  const slMin = c0 > 0 ? (rnd() - 0.5) * 1.1 : 0, slMax = c1 < 1 ? (rnd() - 0.5) * 1.1 : 0;
+  const halves: ((a: number, s: number) => number)[] = [(a, s) => a - aMin - slMin * s, (a, s) => aMax + slMax * s - a];
+  // every stroke goes through here, clipped to the drawn part
+  const line = (pts: [number, number][], wd: number, c: RGB, a = 1) => {
+    for (let i = 1; i < pts.length; i++) {
+      let p = pts[i - 1]!, q = pts[i]!, out = false;
+      for (const g of halves) {
+        const gp = g(p[0], p[1]), gq = g(q[0], q[1]);
+        if (gp < 0 && gq < 0) { out = true; break; }
+        if (gp < 0) p = [lerp(p[0], q[0], gp / (gp - gq)), lerp(p[1], q[1], gp / (gp - gq))];
+        else if (gq < 0) q = [lerp(p[0], q[0], gp / (gp - gq)), lerp(p[1], q[1], gp / (gp - gq))];
+      }
+      if (!out) ink.seg(P(p[0], p[1]), P(q[0], q[1]), wd, c, al * a);
+    }
+  };
+  const glowLine = (pts: [number, number][], wd: number, c: RGB, a = 1) => { line(pts, wd * 4, mul(c, 0.1), a); line(pts, wd, c, a); };
+  const front = (th: number) => Math.cos(th);                                   // > 0: facing us
+  const wrap = (th: number) => Math.atan2(Math.sin(th), Math.cos(th));
+
+  // body: long single strokes (additive joints would bead), the point filled by strokes converging on it
+  // (thin strokes side by side, shaded as a cylinder lit from the left; thin, so their round caps barely pass a break)
+  for (let i = 0; i < 9; i++) {
+    const s = (i - 4) * 0.22 * w, th = Math.asin(s / w);
+    line([[latA, s], [tipA, s]], 0.22 * w, mul(body, 0.12 + 0.16 * Math.max(0, Math.cos(th - 0.6))));
+  }
+  line([[latA, 0.74 * w], [tipA, 0.74 * w]], 0.1 * w, mul(body, 0.25));
+  for (let a = 1; a < latA; a += Math.max(2, w * 0.12)) { const r = R(a) * 0.92; line([[a, -r], [a, r]], w * 0.12, mul(body, 0.11)); }  // head: strokes across
+  // silhouette
+  const sil = (sg: number) => { const pts: [number, number][] = []; for (let i = 0; i <= 60; i++) { const a = len * i / 60; pts.push([a, sg * R(a)]); } return pts; };
+  glowLine(sil(1), 1.4, mul(body, 1.1)); glowLine(sil(-1), 1.2, mul(body, 0.7));
+  // flutes down the shaft (gem-blue light in the front grooves) converging into the point
+  for (let j = -5; j <= 5; j++) {
+    const th = j * 0.3, f = front(th);
+    if (j === 0 || f <= 0.05) continue;
+    const s = w * Math.sin(th);
+    line([[colA, s], [tipA, s], [len - 1, s * 0.02]], 0.9, mul(Math.abs(j) <= 1 ? gem : body, Math.abs(j) <= 1 ? 0.35 : 0.3 * f), 1);
+  }
+  for (const s of [-0.6, 0, 0.6]) line([[tipA, s * w], [len, 0]], w * 0.3, mul(body, 0.12));   // point fill
+  // gold rings: crown band foot, lattice collar (double), the band where the point begins
+  const ring = (a: number, r: number, c: RGB, wd = 1.3) => { const pts: [number, number][] = []; for (let i = 0; i <= 24; i++) { const th = -Math.PI / 2 + Math.PI * i / 24; pts.push(onCyl(a, th, r)); } glowLine(pts, wd, c); };
+  ring(bandA, w * 1.12, col); ring(latA, w * 1.12, col, 1.5); ring(colA, w, col, 1.4); ring(colA + 0.28 * w, w, mul(col, 0.7), 1);
+  ring(tipA, w, col, 1.3);
+  // crown band: pointed arches (5 across the front) with a gem finial on each apex and a lozenge under it
+  const nArch = 10;
+  for (let k = 0; k < nArch; k++) {
+    const thP = wrap(spin + k * Math.PI * 2 / nArch), thQ = thP + Math.PI * 2 / nArch;
+    const pts: [number, number][] = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10, th = thP + (thQ - thP) * u;
+      if (front(th) < -0.05) continue;
+      const dip = Math.pow(Math.sin(Math.PI * u), 0.6) * 0.95 * w;               // ogee: the apexes come to a point
+      pts.push(onCyl(bandA + 0.1 * w + dip, th, w * 1.12));
+    }
+    glowLine(pts, 1.3, col);
+    const fP = front(thP);
+    if (fP > 0.1) {
+      const [pa, ps] = onCyl(bandA + 0.1 * w, thP, w * 1.12);
+      line([[pa, ps], [pa + 0.01, ps]], 0.22 * w * (0.4 + 0.6 * fP), mul(gem, 1.6), fP);
+      const [ma, ms] = onCyl(bandA + 0.62 * w, thP, w * 1.12), hw = 0.15 * w * fP, hh = 0.24 * w;
+      line([[ma - hh, ms], [ma, ms + hw], [ma + hh, ms], [ma, ms - hw], [ma - hh, ms]], 1, col, fP);
+      line([[ma - hh * 0.5, ms], [ma + hh * 0.5, ms]], hw * 1.3, mul(gem, 0.9), fP);
+    }
+  }
+  // the lattice: two families of helices crossing into pointed ovals, a gem in each
+  const nH = 6, kH = 0.42 / w, dTh = Math.PI * 2 / nH;
+  for (let j = 0; j < nH; j++) for (const sg of [1, -1]) {
+    let run: [number, number][] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = latA + latH * i / 28, th = wrap(spin + j * dTh + sg * kH * (a - latA));
+      if (front(th) > 0) run.push(onCyl(a, th, w * 1.02));
+      else { if (run.length > 1) glowLine(run, 1.1, col); run = []; }
+    }
+    if (run.length > 1) glowLine(run, 1.1, col);
+  }
+  // crossings fall every `step` along the axis, offset by half a cell each row; a cell's centre is a row below its top
+  const step = dTh / (2 * kH);
+  for (let r = 1; r * step + 0.6 * step <= latH; r++) for (let j = 0; j < nH; j++) {
+    const th = wrap(spin + (j + (r - 1) / 2) * dTh), f = front(th);
+    if (f < 0.25) continue;
+    const [ca, cs] = onCyl(latA + r * step, th, w * 1.02), hw = 0.22 * w * f, hh = 0.45 * step;
+    line([[ca - hh, cs], [ca, cs + hw], [ca + hh, cs], [ca, cs - hw], [ca - hh, cs]], 0.9, mul(gem, 1.2), f);
+    line([[ca - hh * 0.55, cs], [ca + hh * 0.55, cs]], hw * 1.4, mul(gem, 0.7), f);
+  }
+  // gem lozenges down the front of the shaft, gold-rimmed
+  for (const u of [0.32, 0.7]) {
+    const a = lerp(colA, tipA, u), hw = 0.3 * w, hh = 0.8 * w;
+    if (tipA - colA < 6 * w) break;
+    const lz: [number, number][] = [[a - hh, 0], [a, hw], [a + hh, 0], [a, -hw], [a - hh, 0]];
+    glowLine(lz, 1.3, col); line([[a - hh * 0.6, 0], [a + hh * 0.6, 0]], hw * 1.2, mul(gem, 0.8)); line([[a - hh * 0.3, 0], [a + hh * 0.3, 0]], hw * 0.5, mul(gem, 2));
+    line([[a + hh, 0], [a + hh + 1.6 * w, 0]], 0.9, mul(gem, 0.6));                 // a thread of light hanging below
+  }
+  // broken ends: a ragged glowing edge along each slanted break
+  for (const [a0, sl, on] of [[aMin, slMin, c0 > 0], [aMax, slMax, c1 < 1]] as [number, number, boolean][]) {
+    if (!on) continue;
+    const r = R(a0), pts: P2[] = [];
+    for (let i = 0; i <= 10; i++) { const s = -r + 2 * r * i / 10; pts.push(P(a0 + sl * s + (rnd() - 0.5) * 0.3 * w, s)); }
+    ink.poly(pts, 5, mul(col, 0.12), al);
+    ink.poly(pts, 1.4, mul(body, 1.3), al);
+  }
 }
 
 /** A wireframe cube (Asmoday's prison / the heavens' geometry), rotating. */
@@ -241,7 +449,8 @@ export function cube(ink: Ink, cx: number, cy: number, s: number, ry: number, rx
 const CHESS: Record<string, [number, number][]> = { // (radius, height) profiles, base to top, unit height
   pawn: [[0.42, 0], [0.42, 0.06], [0.3, 0.1], [0.22, 0.14], [0.12, 0.45], [0.2, 0.5], [0.12, 0.54], [0.2, 0.62], [0.22, 0.72], [0.18, 0.82], [0.08, 0.88], [0, 0.89]],
   rook: [[0.45, 0], [0.45, 0.07], [0.32, 0.12], [0.25, 0.2], [0.22, 0.62], [0.3, 0.66], [0.32, 0.86], [0.24, 0.86], [0.24, 0.8], [0.12, 0.8], [0.12, 0.86], [0, 0.86]],
-  bishop: [[0.43, 0], [0.43, 0.06], [0.3, 0.11], [0.2, 0.18], [0.12, 0.55], [0.22, 0.6], [0.12, 0.63], [0.2, 0.72], [0.2, 0.84], [0.1, 0.94], [0.05, 0.97], [0, 1.0]],
+  bishop: [[0.43, 0], [0.43, 0.06], [0.3, 0.11], [0.2, 0.18], [0.12, 0.52], [0.22, 0.56], [0.12, 0.6], [0.17, 0.66], [0.21, 0.75], [0.19, 0.84],
+    [0.12, 0.93], [0.05, 0.98], [0.03, 1.0], [0.06, 1.03], [0.05, 1.07], [0, 1.08]],
   queen: [[0.46, 0], [0.46, 0.06], [0.33, 0.11], [0.22, 0.2], [0.13, 0.62], [0.26, 0.66], [0.15, 0.69], [0.3, 0.88], [0.2, 0.86], [0.16, 0.93], [0.06, 0.96], [0.07, 1.0], [0, 1.03]],
   king: [[0.46, 0], [0.46, 0.06], [0.33, 0.11], [0.22, 0.2], [0.14, 0.62], [0.26, 0.66], [0.15, 0.69], [0.24, 0.85], [0.1, 0.9], [0.04, 0.93], [0.04, 0.98], [0.1, 0.98], [0.1, 1.02], [0.04, 1.02], [0.04, 1.08], [0, 1.08]],
   knight: [],
@@ -261,6 +470,7 @@ export function chess(ink: Ink, kind: string, x: number, y: number, h: number, c
     pts = [...Lh, ...Rh];
   }
   ink.glow(pts, 1.5, col, al, frac, true);
+  if (kind === 'bishop') ink.glow([[x + 0.18 * h, y - 0.71 * h], [x - 0.03 * h, y - 0.88 * h]], 1.2, col, al * frac);   // the mitre's slit
 }
 
 /** Sigils of the Four Shades (life, death, time, space): our own geometric marks. (The elements: _emblem.ts.) */

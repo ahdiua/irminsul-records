@@ -16,14 +16,18 @@ earlier abandoned attempt).
 - `pipeline/` — Python stages (uv project at the root; `uv sync`). `paths.py` = every path.
   - `script_src.py` — THE SCRIPT: chapters → shots (picture id, camera move, fx, tag) → lines (`L` narration,
     `Q` quotation of 《日月前事》 read by the second voice, `plate=` for montage lines).
-  - `tts.py` → `build/tts/<hash>.mp3|json` (Edge TTS: 云健 narrator, 晓晓 quotes; cached by text+voice).
+  - `tts.py` → `build/tts/<hash>.wav|json` (Gemini 3.8 Flash TTS via OpenRouter `/audio/speech`, key `$env:OR_API`
+    — never print it; voices + delivery `instructions` in `VOICES`; cached by model+text+voice). `--audition` renders
+    sample lines in candidate voices. Gemini gives no word times: `align.py` force-aligns the known text (pinyin over
+    torchaudio MMS_FA, own CTC Viterbi); low-scoring takes (skipped/invented words) are re-taken.
   - `assemble.py` → `data/chapters.json` (the edit), `data/lyrics.json` (subtitle cues ≤20 chars with word times),
     `build/narration.wav`. Pacing constants at the top (cards, gaps, quote air).
   - `music.py` → `build/music/score.wav` (synthesised: pads, choir, FM bells, harp, drone, taiko, booms, hall).
     Event hits are found from chapters.json by shot plate id (`shot_start` / `line_start`).
   - `mix.py` → `audio/chronicle.m4a` + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
   - `fonts.py` → `app/public/fonts/` (subset from data + `ui_strings.txt` + script). Add new display strings there.
-  - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet).
+  - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet),
+    `qa_tts.py` (STT of every take diffed against the script in pinyin; run after any TTS change).
 - `app/src/scenes/` — one scene for the whole film (`chronicle.ts`, every chapter entry shares one `Film`):
   - `_film.ts` data → segments (one per shot; montage shots one per line; title; endcard), camera moves, `project()`.
   - `_sky.ts` parametric sky pass (gradient, nebula, stars/milky, glow+rays, ≤3 moons, aurora, clouds, sea, rift,
@@ -51,7 +55,12 @@ After changing the script: tts → assemble → fonts → music → mix (times m
 
 ## Research access
 WebFetch cannot reach Fandom (Cloudflare) or archive.org; use the Chrome DevTools MCP on
-`https://web.archive.org/web/2026id_/https://genshin-impact.fandom.com/wiki/<Page>`; BWIKI loads directly in Chrome.
+`https://web.archive.org/web/2026id_/https://genshin-impact.fandom.com/wiki/<Page>`. Chinese names: check against the
+game text, in this order: 米游社观测枢 (official; from its tab, `fetch` `api-static.mihoyo.com/common/blackboard/ys_obc/v1/
+search/content?app_sn=ys_obc&keyword=…` and `…/content/info?app_sn=ys_obc&content_id=…`), BWIKI (from its tab,
+`/ys/api.php` search / `action=parse` works; unquoted search terms only, ~1 req/s), 萌娘百科 (no API or `action=raw`;
+fetch page HTML from a moegirl tab, the body is inside `<template id="MOE_SKIN_TEMPLATE_BODYCONTENT">`; fast requests hit
+Cloudflare; it has errors, e.g. it calls the last king 伊尔明苏尔). Captures go to `docs/research/<site>/`.
 
 ## Shell
 PowerShell 7. Python one-liners with quotes break in pwsh: write a script file.

@@ -31,8 +31,8 @@ END_CARD = 9.0
 CUE_MAX = 20        # subtitle cue length (chars)
 
 
-def decode(mp3) -> np.ndarray:
-    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(mp3), '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
+def decode(path) -> np.ndarray:
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(path), '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
                          check=True, capture_output=True).stdout
     return np.frombuffer(raw, np.float32).copy()
 
@@ -134,7 +134,7 @@ def main():
             for li, ln in enumerate(sh.lines):
                 role = 'quote' if ln.quote else 'narrator'
                 k = key(ln.voice_text or ln.text, role)
-                x = decode(TTS / f'{k}.mp3')
+                x = decode(TTS / f'{k}.wav')
                 marks = json.loads((TTS / f'{k}.json').read_text(encoding='utf-8'))['marks']
                 on, off = speech_bounds(x)
                 if ln.quote:

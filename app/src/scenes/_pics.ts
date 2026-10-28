@@ -298,7 +298,7 @@ export const PICS: Record<string, PicDef> = {
       });
     },
     ui: (c, k) => {
-      const names: [string, string, number, number][] = [['生之执政', '纳贝里士', 560, 470], ['死之执政', '罗诺瓦', 1360, 470], ['时之执政', '伊斯塔露', 560, 870], ['空之执政', '阿斯莫代', 1360, 870]];
+      const names: [string, string, number, number][] = [['生之执政', '纳贝里士', 560, 470], ['死之执政', '若娜瓦', 1360, 470], ['时之执政', '伊斯塔露', 560, 870], ['空之执政', '阿斯莫代', 1360, 870]];
       names.forEach(([a, b, x, y], i) => {
         const al = k.at(k.L(1) + i * 1.25 + 0.4, 0.8);
         if (al <= 0) return;

@@ -308,8 +308,8 @@ export class Overlay {
     c.font = font(F.sans(500), 21);
     c.fillStyle = rgba(BONE, 0.72);
     const lines = [
-      '资料来源：游戏内书籍、任务与角色故事；整理参考 原神WIKI（BWIKI）、Genshin Impact Wiki（Fandom）',
-      '旁白：Edge TTS 云健 · 引文：晓晓 · 本片所有画面均由代码实时渲染',
+      '资料来源：游戏内书籍、任务与角色故事；整理参考 米游社观测枢、原神WIKI（BWIKI）、萌娘百科、Genshin Impact Wiki（Fandom）',
+      '旁白：Gemini TTS（Schedar）· 引文：Aoede · 本片所有画面均由代码实时渲染',
       '《原神》及相关设定归 HoYoverse / 米哈游 所有 · 同人编年史',
     ];
     lines.forEach((s, i) => this.spaced(c, s, 960, 640 + i * 42, 2));

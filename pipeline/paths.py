@@ -4,8 +4,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PIPE = ROOT / "pipeline"
 BUILD = ROOT / "build"          # every intermediate (gitignored)
-TTS = BUILD / "tts"             # one mp3 + boundary json per narration line
+TTS = BUILD / "tts"             # one wav + char-times json per narration line
 MUSIC = BUILD / "music"         # rendered score stems
+CACHE = BUILD / "cache"         # model weights (MMS_FA aligner)
 ART_RAW = BUILD / "art" / "raw" # ComfyUI outputs, all candidates
 QA = BUILD / "qa"
 DATA = ROOT / "data"            # what the app reads: lyrics.json (narration), audio.json, chapters.json
@@ -27,5 +28,5 @@ FONTS = {
     "hand": BUILD / "dl" / "LXGWWenKai-Regular.ttf",
 }
 
-for d in (BUILD, TTS, MUSIC, ART_RAW, QA, DATA, ART, FONTS_OUT, MASTER.parent):
+for d in (BUILD, TTS, MUSIC, CACHE, ART_RAW, QA, DATA, ART, FONTS_OUT, MASTER.parent):
     d.mkdir(parents=True, exist_ok=True)

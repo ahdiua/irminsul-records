@@ -10,6 +10,7 @@ import { FILM, SEGMENTS, XFADE, camera, segmentAt, type Segment } from './_film'
 import { Sky } from './_sky';
 import { Land } from './_land';
 import { Ink, particles } from './_art';
+import { Emblems } from './_emblem';
 import { PICS, type PicCtx, type PicDef } from './_pics';
 import { Overlay } from './_overlay';
 
@@ -34,6 +35,7 @@ class Film {
   sky = new Sky();
   land = new Land();
   lb = new LineBatch(160000);
+  emblems = new Emblems();
   rts = [makeRT(), makeRT(), makeRT(), makeRT()];
   dissolve = new FSPass(DISSOLVE, { a: { value: null }, b: { value: null }, k: { value: 0 }, seed: { value: 0 } });
   overlay: Overlay;
@@ -78,6 +80,7 @@ class Film {
     def.art?.(ink, k);
     if (def.fx) particles(ink, def.fx.kind, t, def.fx.col, def.fx.amount ?? 1, 7 + seg.i);
     this.lb.render(r, target);
+    if (def.emblems) this.emblems.render(r, target, def.emblems(k), k.cam);
     return target.texture;
   }
 

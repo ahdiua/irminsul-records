@@ -11,6 +11,7 @@ import type { LandDef, LayerDef, Draw } from './_land';
 import type { RGB, SkyParams } from './_sky';
 import * as S from './_shapes';
 import { Ink, chess, cube, drawTree, makeTree, mixc, mul, nail, particles, rings, serpent, shatter, sigil, tendrils, wyvern, type P2 } from './_art';
+import { emblemCol, type Emblem } from './_emblem';
 
 export interface PicCtx {
   t: number; lt: number; seg: Segment; cam: Cam;
@@ -27,6 +28,8 @@ export interface PicDef {
   landDelay?: number[];               // per-layer inscription delays (s)
   back?: (ink: Ink, k: PicCtx) => void;
   art?: (ink: Ink, k: PicCtx) => void;
+  /** element emblems (elements.svg), added over the art */
+  emblems?: (k: PicCtx) => Emblem[];
   fx?: { kind: string; col: RGB; amount?: number };
   ui?: (c: CanvasRenderingContext2D, k: PicCtx) => void;
   post?: (k: PicCtx) => PostOverrides;
@@ -617,12 +620,10 @@ export const PICS: Record<string, PicDef> = {
     art: (ink, k) => {
       rings(ink, 960, 500, 110, mul(E.gold, 1), 0.8, k.t, smoothstep(0, 1.5, k.lt));
       ink.dot([960, 500], 8, mul(E.goldHot, 3), 1);
-      ELS.forEach(([name, col], i) => {
+      ELS.forEach(([name], i) => {
         const a = -Math.PI / 2 + i * Math.PI * 2 / 7;
-        const x = 960 + Math.cos(a) * 340, y = 500 + Math.sin(a) * 340;
         const g = k.at(k.seg.start + 0.6 + i * 0.45, 1.0);
-        ink.poly([[960 + Math.cos(a) * 120, 500 + Math.sin(a) * 120], [x - Math.cos(a) * 64, y - Math.sin(a) * 64]], 1, mul(col, 0.8), 0.6, g);
-        sigil(ink, name, x, y, 56, mul(col, 1.5), 1, g, k.t);
+        ink.poly([[960 + Math.cos(a) * 120, 500 + Math.sin(a) * 120], [960 + Math.cos(a) * 262, 500 + Math.sin(a) * 262]], 1, emblemCol(name, 0.8), 0.6, g, false, 2);
       });
       // the defeated: dim sparks drifting out to the dark sea
       const f = k.at(k.L(1), 3);
@@ -631,6 +632,11 @@ export const PICS: Record<string, PicDef> = {
         ink.dot([960 + Math.cos(a) * r * 1.5, 500 + Math.sin(a) * r * 0.9], 2.5, mul(E.abyss, 1.4), f * (1 - f * 0.5));
       }
     },
+    // each emblem burns in as its spoke arrives
+    emblems: (k) => ELS.map(([el], i) => {
+      const a = -Math.PI / 2 + i * Math.PI * 2 / 7;
+      return { el, x: 960 + Math.cos(a) * 340, y: 500 + Math.sin(a) * 340, size: 150, rev: k.at(k.seg.start + 1.2 + i * 0.45, 1.3), glow: 1 + 0.2 * Math.sin(k.t * 1.3 + i * 0.9) };
+    }),
     ui: (c, k) => {
       const N: [string, string][] = [['蒙德', '巴巴托斯'], ['璃月', '摩拉克斯'], ['稻妻', '巴尔'], ['须弥', '大慈树王'], ['枫丹', '厄歌莉娅'], ['纳塔', '希巴拉克'], ['至冬', '冰神']];
       N.forEach(([n, g], i) => {
@@ -750,8 +756,9 @@ export const PICS: Record<string, PicDef> = {
         for (let s = 0; s < 10; s++) { pts.push([x, y]); x += (hash(i, s) - 0.5) * 90; y -= 25 + hash(s, i) * 25; }
         ink.glow(pts, 1.4, mul(E.abyss, 1.8 + Math.sin(k.t * 2 + i)), 0.8, k.at(k.seg.start + i * 0.15, 1.5));
       }
-      sigil(ink, 'geo', 960, 840, 220, mul(E.geo, 1.6), 0.9, k.at(k.L(0) + 2, 2), k.t);
     },
+    // the seal, lying over the mouth of the chasm
+    emblems: (k) => [{ el: 'geo', x: 960, y: 772, size: 440, sy: 0.42, al: 0.8, rev: k.at(k.L(0) + 2, 2), glow: 1.3 }],
     fx: { kind: 'ash', col: E.abyss, amount: 0.8 },
   },
   sakura: {

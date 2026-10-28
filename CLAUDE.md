@@ -2,6 +2,8 @@
 
 《提瓦特编年史》: a ~13.8 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
 dragon age to Snezhnaya (7.0). Everything on screen is code-rendered: **no AI-generated images, no game assets**.
+One exception, at the user's request: the seven element emblems come from the vector file the user supplied
+(`app/src/scenes/elements.svg`), so they match the game's icons.
 The engine is a fork of `../黑凤梨/app` (itself pdoom-video): read `../pdoom-video/docs/ENGINE.md` for the engine
 rules (determinism on `f.t`, 1920×1080 logical px, linear HDR colours, `frameIdx` for per-frame jitter).
 
@@ -29,6 +31,8 @@ earlier abandoned attempt).
     (fog, engraving hatch, rim light, inscribed contour). `_shapes.ts` the path vocabulary.
   - `_art.ts` line art (`Ink` over LineBatch: serpent/wyvern dragons, `makeTree`/`drawTree`, nail, cube, chess,
     sigil, rings, moon `shatter`, tendrils, particles). `_pics.ts` EVERY PICTURE (keyed by the script's plate ids).
+  - `_emblem.ts` element emblems: `elements.svg` paths → atlas mask (glyph + two glows) → additive pass with a
+    burn-in reveal; a picture lists them in `emblems: (k) => [...]` (`sy` < 1 lays one flat on the ground).
   - `_overlay.ts` typography: subtitles, quote cards lit per character, chapter cards + year ruler, era stamp,
     place tags, title, end card.
 - `docs/RESEARCH.md` sources and the adopted chronology; `docs/research/` raw page captures.

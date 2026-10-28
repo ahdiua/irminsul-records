@@ -263,7 +263,7 @@ export function chess(ink: Ink, kind: string, x: number, y: number, h: number, c
   ink.glow(pts, 1.5, col, al, frac, true);
 }
 
-/** Sigils of the Four Shades (life, death, time, space) and the seven elements: our own geometric marks. */
+/** Sigils of the Four Shades (life, death, time, space): our own geometric marks. (The elements: _emblem.ts.) */
 export function sigil(ink: Ink, kind: string, x: number, y: number, r: number, col: RGB, al = 1, frac = 1, t = 0) {
   const C = (rr: number, f = frac) => ink.circle(x, y, rr, 1.3, col, al, f);
   const G = (pts: P2[], closed = false) => ink.glow(pts.map(([a, b]) => [x + a * r, y + b * r] as P2), 1.4, col, al, frac, closed);
@@ -273,14 +273,6 @@ export function sigil(ink: Ink, kind: string, x: number, y: number, r: number, c
     case 'time': C(r); C(r * 0.7); G([[-0.4, -0.5], [0.4, -0.5], [-0.4, 0.5], [0.4, 0.5]], true); G([[0, -0.85], [0, -0.7]]); G([[0, 0.7], [0, 0.85]]);
       G([[0, 0], [Math.cos(t * 0.6) * 0.55, Math.sin(t * 0.6) * 0.55]]); break;
     case 'space': C(r); { const s = 0.62; for (const k of [0, 1]) { const a = k * Math.PI / 4 + t * 0.1; G([0, 1, 2, 3].map((i) => [Math.cos(a + i * Math.PI / 2) * s, Math.sin(a + i * Math.PI / 2) * s] as P2), true); } } break;
-    case 'anemo': C(r); G(Array.from({ length: 40 }, (_, i) => { const u = i / 39, a = u * TAU * 1.4; return [Math.cos(a) * 0.65 * u, Math.sin(a) * 0.65 * u] as P2; })); break;
-    case 'geo': C(r); G([[0, -0.7], [0.55, 0], [0, 0.7], [-0.55, 0]], true); G([[0, -0.7], [0, 0.7]]); G([[-0.55, 0], [0.55, 0]]); break;
-    case 'electro': C(r); G([[0, -0.72], [0.62, 0.38], [-0.62, 0.38]], true); G([[0.1, -0.35], [-0.12, 0.05], [0.12, 0.05], [-0.1, 0.4]]); break;
-    case 'dendro': C(r); G([[0, 0.7], [-0.45, 0.05], [0, -0.7], [0.45, 0.05]], true); G([[0, 0.7], [0, -0.45]]); G([[0, 0.1], [-0.25, -0.12]]); G([[0, 0.25], [0.25, 0.03]]); break;
-    case 'hydro': C(r); G([[0, -0.72], [0.4, -0.05], [0.42, 0.25], [0.2, 0.55], [0, 0.6], [-0.2, 0.55], [-0.42, 0.25], [-0.4, -0.05]], true); G([[-0.3, 0.22], [-0.1, 0.12], [0.1, 0.3], [0.3, 0.2]]); break;
-    case 'pyro': C(r); G([[0, 0.65], [-0.38, 0.35], [-0.32, -0.1], [-0.12, -0.35], [-0.08, -0.05], [0.05, -0.72], [0.3, -0.3], [0.4, 0.2], [0.25, 0.5]], true); break;
-    case 'cryo': C(r); for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; G([[Math.cos(a) * 0.7, Math.sin(a) * 0.7], [-Math.cos(a) * 0.7, -Math.sin(a) * 0.7]]); }
-      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3, m: P2 = [Math.cos(a) * 0.42, Math.sin(a) * 0.42]; G([[m[0] + Math.cos(a + 0.9) * 0.18, m[1] + Math.sin(a + 0.9) * 0.18], m, [m[0] + Math.cos(a - 0.9) * 0.18, m[1] + Math.sin(a - 0.9) * 0.18]]); } break;
   }
 }
 

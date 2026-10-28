@@ -9,6 +9,21 @@ import { clamp, ease, lerp, smoothstep } from '../engine/util';
 import { FILM, type ChapterJ, type Segment, chapterAt } from './_film';
 
 const GOLD = '#E9C47E', BONE = '#EEE6D3', ASH = '#8B93A8';
+
+/** End card. The author: the user's id. SOURCES: every source docs/RESEARCH.md cites (game texts, then the wikis and
+ * articles used to find and check them, then the pictures' references); new display text also goes in
+ * pipeline/ui_strings.txt (font subset). */
+const AUTHOR = 'ahdiua';
+const SOURCES = [
+  '书籍：《白夜国馆藏·日月前事》《石书集录》《绝云记闻》《裴伦埃里》 · 角色故事：钟离、温迪、那维莱特、旅行者',
+  '任务：魔神任务 序章至第五章 · 间章第三幕「倾落伽蓝」 · 空月之歌 第八幕「真实之月」、第十幕「虚空劫灰往世书」 · 7.0「无神怜爱的雪国」',
+  '世界任务与活动：「传说中的天蛇船」 · 水仙的追迹 第二幕「救世者的守灵」 · 揭示之书「神秘的书页」 · 「当我们抬头望月亮」',
+  '图鉴与文本：介绍【自体自身之塔】 · 根源之轮 · 武器「支离轮光」「赤月之形」 · 圣遗物「来歆余响」 · BOSS「『死之执政』若娜瓦」 · 挪德卡莱地区介绍 · 空月之歌 PV',
+  '整理与考据：米游社观测枢 · 原神WIKI（BWIKI） · 萌娘百科 · Genshin Impact Wiki（Fandom，Wayback Machine 存档）',
+  'HoYoLAB Wiki · Wikipedia · Notebookcheck · Game Rant · Pocket Tactics',
+  '画面参考：寒天之钉的游戏画面（米游社攻略图、哔哩哔哩视频封面），仅作造型参考',
+];
+const MAKING = '旁白 Gemini 3.8 Flash TTS（Schedar）· 引文 Aoede · 字体 汉仪润圆 65W · 画面与配乐均由代码实时生成';
 const EL: Record<string, string> = {
   anemo: '#62D6B8', geo: '#F2B54A', electro: '#B48CFF', dendro: '#9CD84F', hydro: '#4DB6F5', pyro: '#FF7240', cryo: '#A9E6F4',
   gold: '#E9C47E', abyss: '#A578F0',
@@ -290,32 +305,37 @@ export class Overlay {
     c.restore();
   }
 
+  /** The end card: title, author, every source the chronicle draws on (docs/RESEARCH.md), credits, dedication. */
   private endCard(c: CanvasRenderingContext2D, t: number) {
     const { start, end } = FILM.end;
     const a = smoothstep(start + 0.4, start + 1.8, t) * (1 - smoothstep(end - 1.2, end, t));
     if (a <= 0) return;
     c.save();
     c.globalAlpha = a;
-    c.font = font(F.serif(900), 84);
+    c.font = font(F.serif(900), 76);
     c.fillStyle = BONE; c.shadowColor = rgba(GOLD, 0.6); c.shadowBlur = 30;
-    this.spaced(c, '历史仍在书写', 960, 430, 16);
+    this.spaced(c, '历史仍在书写', 960, 250, 16);
     c.shadowBlur = 0;
     c.font = font(F.sans(500), 22);
     c.fillStyle = rgba(GOLD, 0.8);
-    this.spaced(c, '提瓦特编年史 · A CHRONICLE OF TEYVAT', 960, 492, 8);
-    const cr = smoothstep(start + 2.0, start + 3.2, t);
-    c.globalAlpha = a * cr;
-    c.font = font(F.sans(500), 21);
-    c.fillStyle = rgba(BONE, 0.72);
-    const lines = [
-      '资料来源：游戏内书籍、任务与角色故事；整理参考 米游社观测枢、原神WIKI（BWIKI）、萌娘百科、Genshin Impact Wiki（Fandom）',
-      '旁白：Gemini TTS（Schedar）· 引文：Aoede · 本片所有画面均由代码实时渲染',
-      '《原神》及相关设定归 HoYoverse / 米哈游 所有 · 同人编年史',
-    ];
-    lines.forEach((s, i) => this.spaced(c, s, 960, 640 + i * 42, 2));
+    this.spaced(c, '提瓦特编年史 · A CHRONICLE OF TEYVAT', 960, 306, 8);
+    c.font = font(F.serif(700), 32);
+    c.fillStyle = BONE;
+    this.spaced(c, `作者  ${AUTHOR}`, 960, 380, 6);
+    c.globalAlpha = a * smoothstep(start + 1.4, start + 2.6, t);
+    c.font = font(F.sans(500), 20);
+    c.fillStyle = rgba(GOLD, 0.85);
+    this.spaced(c, '资料来源', 960, 456, 8);
+    c.font = font(F.sans(500), 19);
+    c.fillStyle = rgba(BONE, 0.78);
+    SOURCES.forEach((s, i) => this.spaced(c, s, 960, 496 + i * 34, 1));
+    const y = 496 + SOURCES.length * 34 + 30;
+    c.fillStyle = rgba(BONE, 0.66);
+    this.spaced(c, MAKING, 960, y, 1);
+    this.spaced(c, '《原神》及相关设定归 HoYoverse / 米哈游 所有 · 同人编年史', 960, y + 34, 1);
     c.font = font(F.serif(600), 28);
     c.fillStyle = rgba(GOLD, 0.9);
-    this.spaced(c, '谨以此片献给所有提瓦特的旅行者', 960, 820, 8);
+    this.spaced(c, '谨以此片献给所有提瓦特的旅行者', 960, y + 112, 8);
     c.restore();
   }
 }

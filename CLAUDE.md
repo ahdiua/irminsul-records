@@ -24,15 +24,20 @@ earlier abandoned attempt).
     one request each changed mood between lines, so `--whole` reads the film in a few ~5-minute takes of whole chapters
     (both voices in one take: Gemini multi-speaker, `speech_metadata.speaker` per part; each take opens with the previous
     take's last line, dropped) and cuts them back into lines at pauses (`split`, a DP on expected lengths). One take of
-    the whole film went bad after ~400 s (dropped words). A plain run only fills lines missing from the cache, each read
-    with its neighbours. Mispronunciations: `SAY` (homophones in what Gemini reads only). Gemini gives no word times:
+    the whole film went bad after ~400 s (dropped words; one request outputs at most ~655 s of audio, 16,384 tokens).
+    A plain run only fills lines missing from the cache (a run of new lines in one take between its cached neighbours).
+    Mispronunciations: `SAY` (homophones in what Gemini reads only). Trial in progress (user, 2026-10-28): no style
+    (`VOICES` instructions empty; Google's 3.8 guide: start from an empty style, hold-steady instructions add drift;
+    the earlier brief is `BRIEFS`, its takes still cached) and `--chapters`: a take per chapter, cut at pauses only,
+    no alignment / STT / retakes, checked by ear by the user. Gemini gives no word times:
     `align.py` force-aligns the known text (pinyin over torchaudio MMS_FA, own CTC Viterbi); failing lines
     (skipped/invented words) are re-read in context.
   - `assemble.py` → `data/chapters.json` (the edit), `data/lyrics.json` (subtitle cues ≤20 chars with word times),
     `build/narration.wav`. Pacing constants at the top (cards, gaps, quote air).
   - `music.py` → `build/music/score.wav` (synthesised: pads, choir, FM bells, harp, drone, taiko, booms, hall).
     Event hits are found from chapters.json by shot plate id (`shot_start` / `line_start`).
-  - `mix.py` → `audio/chronicle.m4a` + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
+  - `mix.py` → `audio/chronicle.m4a` (AAC 256k, muxed into renders) + `audio/chronicle.opus` (Opus 128k, what the
+    preview player loads) + `data/audio.json` (voice -17 LUFS; score -25 LUFS, two-band ducking).
   - `fonts.py` → `app/public/fonts/HYRunYuan.ttf` (subset from data + `ui_strings.txt` + script). Add new display
     strings there. `engine/type.ts`: every family helper (`F.sans/serif/display/...`) returns this one face.
   - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet),
@@ -51,11 +56,13 @@ earlier abandoned attempt).
     game's Skyfrost Nail; `cut` draws broken pieces), `spear` (Liyue's stone spears), cube, chess,
     sigil, rings, moon `shatter`, tendrils, particles). `_pics.ts` EVERY PICTURE (keyed by the script's plate ids),
     plus the figures `phanes` / `sustainer`. Why things look as they do (nail, Phanes, Gnosis pieces): RESEARCH.md
-    「画面的依据」.
+    「画面的依据」. A picture times events to the narration with `k.L(i)` (a line's start) or `k.say('词')` (when the
+    shot's narration says it, from the subtitle cues' word times); music.py has the same `said()`.
   - `_emblem.ts` element emblems: `elements.svg` paths → atlas mask (glyph + two glows) → additive pass with a
     burn-in reveal; a picture lists them in `emblems: (k) => [...]` (`sy` < 1 lays one flat on the ground).
   - `_overlay.ts` typography: subtitles, quote cards lit per character, chapter cards + year ruler, era stamp,
-    place tags, title, end card.
+    place tags, title, end card (one page: author `AUTHOR` = the user's id ahdiua, every source RESEARCH.md cites in
+    `SOURCES`: keep them in step).
 - `docs/RESEARCH.md` sources and the adopted chronology; `docs/research/` raw page captures.
 
 ## Commands
@@ -67,7 +74,9 @@ $env:PDOOM_NO_HMR=1; bunx --bun vite --port 5190 --strictPort --host 127.0.0.1  
                                                                                   # private server times out here
 bun scripts/render.ts stills --url http://127.0.0.1:5190 --t 58.4,122.5 --out ../out/wip/x
 bun scripts/render.ts video --url http://127.0.0.1:5190 --samples 1 --codec hevc_nvenc --cq 22 --out ../out/draft-1080.mp4
+pwsh -File pipeline/render_final.ps1      # 4K60 HEVC Main10 NVENC, 4 parallel quarters -> out/teyvat-chronicle-4k.mp4 (~45 min)
 ```
+The preview may run with `--host 0.0.0.0` (the user opens it over ZeroTier, 192.168.168.87:5190).
 After changing the script: tts → assemble → fonts → music → mix (times move; pictures follow by id).
 
 ## Research access

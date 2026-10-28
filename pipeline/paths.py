@@ -13,7 +13,8 @@ DATA = ROOT / "data"            # what the app reads: lyrics.json (narration), a
 APP = ROOT / "app"
 ART = APP / "public" / "art"    # the plates the app draws
 FONTS_OUT = APP / "public" / "fonts"
-MASTER = ROOT / "audio" / "chronicle.m4a"
+MASTER = ROOT / "audio" / "chronicle.m4a"     # AAC 256k: muxed into the renders
+PREVIEW = ROOT / "audio" / "chronicle.opus"   # Opus 128k: what the preview player loads (half the size)
 SR = 48000
 GCP_KEY = ROOT / "secrets" / "gcp_key.json"   # Vertex AI service-account key (gitignored; never print it)
 

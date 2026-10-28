@@ -212,8 +212,9 @@ function setupExport() {
 function setupPlayer() {
   // The master is played from a Blob: a host that ignores Range (Cloudflare's assets answer every request
   // with the whole file, 200) leaves only what has been downloaded seekable, and a seek past it right
-  // after Play snapped back to 0:00. 3.8 MB, fetched whole; the plain URL if the fetch fails.
-  const AUDIO_URL = 'audio/chronicle.m4a';
+  // after Play snapped back to 0:00. Fetched whole (the plain URL if the fetch fails): the Opus 128k preview copy
+  // (~14 MB; pipeline/mix.py), not the 256k AAC master the renders mux.
+  const AUDIO_URL = 'audio/chronicle.opus';
   const audio = new Audio();
   audio.preload = 'auto';
   const audioReady = fetch(AUDIO_URL)

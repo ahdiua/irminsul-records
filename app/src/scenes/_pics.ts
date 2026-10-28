@@ -19,6 +19,8 @@ export interface PicCtx {
   w: number;
   /** start time of the shot's i-th narration line (absolute) */
   L(i: number): number;
+  /** when the narration of this shot says `s` (absolute; its first character's word time), else the shot's start */
+  say(s: string): number;
   /** 0..1 eased progress over [a, a + d] (absolute times) */
   at(a: number, d: number): number;
 }
@@ -278,6 +280,29 @@ function shock(ink: Ink, x: number, y: number, t: number, te: number, col: RGB, 
     const r = ease.outCubic(u) * max;
     ink.circle(x, y, r, 2.2 * (1 - u) + 0.6, mul(col, 2 * (1 - u)), 1 - u, 1, 160);
   }
+}
+
+const arcPts = (cx: number, cy: number, r: number, a0: number, a1: number, n = 120): P2[] =>
+  Array.from({ length: n + 1 }, (_, j) => { const a = lerp(a0, a1, j / n); return [cx + Math.cos(a) * r, cy + Math.sin(a) * r] as P2; });
+
+/**
+ * The four cycles of the Narcissenkreuz Ordo (the plaque of its tower, 自体自身之塔; the tower's keys, 根源之轮, fit
+ * together in "three and a half rings"): Hyperborea innermost, Natlantean, Remuria, and Khraun-Arya, the fourth, only
+ * half way round. Each ring lights as the narration names it, its meaning as that is said (`key`); `ang` is where
+ * its label's leader leaves the ring.
+ */
+const CYC_C: P2 = [960, 520];
+const CYCLES = [
+  { name: '亥珀波瑞亚', en: 'Hyperborea', mean: '失乐园', key: '失乐园', r: 92, col: E.cryo, css: '#A9E6F4', ang: -2.62 },
+  { name: '纳塔兰提亚', en: 'Natlantean', mean: '战胜恶龙', key: '战胜恶龙', r: 170, col: E.pyro, css: '#FF7240', ang: 2.62 },
+  { name: '雷穆利亚', en: 'Remuria', mean: '原罪与洗礼', key: '原罪', r: 248, col: E.hydro, css: '#4DB6F5', ang: -0.52 },
+  { name: '克劳雅利亚', en: 'Khraun-Arya', mean: '从神那里获得自由', key: '获得自由', r: 326, col: E.goldHot, css: '#E9C47E', ang: 0.52 },
+];
+/** A cycle's label leader: from its ring, out along `ang`, then level to the label. */
+function cycleLeader(i: number): [P2, P2, P2] {
+  const c = CYCLES[i]!, [cx, cy] = CYC_C, ca = Math.cos(c.ang), sa = Math.sin(c.ang);
+  const e: P2 = [cx + ca * 380, cy + sa * 380];
+  return [[cx + ca * c.r, cy + sa * c.r], e, [e[0] + Math.sign(ca) * 70, e[1]]];
 }
 
 // ------------------------------------------------------------------ the pictures
@@ -1113,6 +1138,103 @@ export const PICS: Record<string, PicDef> = {
   },
 
   // ================================================================ epilogue
+  'diagram:cycles': {
+    sky: () => night({ top: hx('#02030a'), mid: hx('#0a1130'), hor: hx('#22283e'), horY: 900, stars: 0.9, milky: 0.6, milkyAngle: -0.4, neb: 0.45, nebA: hx('#4db6f5', 0.22), nebB: hx('#e8c47e', 0.2) }),
+    art: (ink, k) => {
+      const [cx, cy] = CYC_C, TAU = Math.PI * 2, top = -Math.PI / 2;
+      const base = k.at(k.seg.chapter.cardEnd - 1.5, 3);
+      const told = k.at(k.say('水仙十字结社'), 1.5);                  // the society is named: the root lights
+      const doom = k.at(k.say('不会再有'), 1.5);
+      // the root: four quadrants in a small circle
+      const rc = mul(E.goldHot, 1.4);
+      ink.circle(cx, cy, 24, 1.2, rc, (0.4 + 0.6 * told) * base);
+      ink.poly([[cx - 24, cy], [cx + 24, cy]], 1, rc, (0.3 + 0.6 * told) * base);
+      ink.poly([[cx, cy - 24], [cx, cy + 24]], 1, rc, (0.3 + 0.6 * told) * base);
+      ink.dot([cx, cy], 5, mul(E.goldHot, 3), (0.5 + 0.5 * told) * base);
+      // 「一次又一次的覆灭与重来」: a light runs round every ring until the society is named
+      const run = base * (1 - told);
+      CYCLES.forEach((c, i) => {
+        const a = k.t * (1.1 - i * 0.18) + i * 1.7;
+        ink.glow(arcPts(cx, cy, c.r, a, a + 0.7, 24), 1.3, mul(c.col, 1.6), 0.7 * run);
+      });
+      // 「人会在一轮又一轮的轮回中不断完善」: a spiral out from the root through the rings
+      const sp: P2[] = Array.from({ length: 281 }, (_, j) => { const s = j / 280, a = top + s * TAU * 3.5; return [cx + Math.cos(a) * lerp(30, 326, s), cy + Math.sin(a) * lerp(30, 326, s)] as P2; });
+      ink.poly(sp, 0.8, mul(E.gold, 0.9), 0.3 * told * (1 - 0.6 * k.at(k.say('亥珀波瑞亚'), 2)), k.at(k.say('一轮又一轮'), 3.5), false, 1.4);
+      CYCLES.forEach((c, i) => {
+        const half = i === 3, span = half ? Math.PI : TAU;
+        const lit = k.at(k.say(c.name), 1.3), ts = k.say(c.key);
+        const flash = k.t > ts ? Math.exp(-(k.t - ts) * 1.2) : 0;
+        const col = mul(c.col, 1.2 + 2 * flash);
+        // faint outline from the start (the fourth: its first half), lit and inscribed as the cycle is named
+        ink.poly(arcPts(cx, cy, c.r, top, top + span, half ? 90 : 180), 0.8, mul(c.col, 0.6), 0.3 * base);
+        ink.glow(arcPts(cx, cy, c.r, top, top + span, half ? 90 : 180), 1.4 + flash, col, 0.9, lit);
+        const sym = 0.8 * lit;
+        if (i === 0) for (let j = 0; j < 8; j++) {            // Hyperborea: frost stars (a world frozen, paradise lost)
+          const a = top + j * TAU / 8 + 0.2, px = cx + Math.cos(a) * c.r, py = cy + Math.sin(a) * c.r;
+          for (let q = 0; q < 3; q++) { const b = q * Math.PI / 3 + a; ink.seg([px - Math.cos(b) * 8, py - Math.sin(b) * 8], [px + Math.cos(b) * 8, py + Math.sin(b) * 8], 1, col, sym); }
+        }
+        if (i === 1) for (let j = 0; j < 12; j++) {           // Natlantean: scales turned outward (the dragon overcome)
+          const a = top + j * TAU / 12 + 0.13, P = (r: number, d: number): P2 => [cx + Math.cos(a + d) * r, cy + Math.sin(a + d) * r];
+          ink.poly([P(c.r - 4, -0.06), P(c.r + 11, 0), P(c.r - 4, 0.06)], 1.1, col, sym);
+        }
+        if (i === 2) {                                         // Remuria: a wave round the ring (the flood)
+          const w: P2[] = Array.from({ length: 241 }, (_, j) => { const a = top + j / 240 * TAU; const r = c.r + 7 * Math.sin(a * 16 + k.t * 0.8); return [cx + Math.cos(a) * r, cy + Math.sin(a) * r] as P2; });
+          ink.poly(w, 0.9, col, 0.6 * lit, lit);
+        }
+        if (half) {                                            // Khraun-Arya: ticks on the half drawn, a head at "now"
+          for (let j = 0; j <= 36; j++) {
+            const a = top + j * Math.PI / 36, l = j % 6 === 0 ? 12 : 5;
+            ink.seg([cx + Math.cos(a) * c.r, cy + Math.sin(a) * c.r], [cx + Math.cos(a) * (c.r - l), cy + Math.sin(a) * (c.r - l)], 0.8, col, 0.6 * smoothstep(j / 36 - 0.05, j / 36, lit));
+          }
+          const now: P2 = [cx + Math.cos(top + Math.PI * lit) * c.r, cy + Math.sin(top + Math.PI * lit) * c.r];
+          ink.dot(now, 6 + 1.5 * Math.sin(k.t * 3), mul(E.goldHot, 3), lit);
+          // the half not yet run: dotted, until the reckoning says no cycle comes after this one
+          for (let j = 1; j < 30; j++) { const a = top + Math.PI + j * Math.PI / 30; ink.dot([cx + Math.cos(a) * c.r, cy + Math.sin(a) * c.r], 2, mul(E.gold, 1.6), 0.8 * lit * (1 - doom)); }
+        }
+        // the label's leader
+        const [p, e, x] = cycleLeader(i);
+        ink.poly([p, e, x], 0.8, mul(c.col, 0.9), 0.6, k.at(k.say(c.name) + 0.2, 0.8));
+      });
+      // 「用他推导出的『世界式』反复推演」: a hand sweeping round and round
+      const calc = k.at(k.say('世界式'), 0.6) * (1 - doom);
+      if (calc > 0) {
+        const a0 = (k.t - k.say('世界式')) * 2.4 + top;
+        for (let q = 0; q < 6; q++) { const a = a0 - q * 0.05; ink.seg([cx + Math.cos(a) * 30, cy + Math.sin(a) * 30], [cx + Math.cos(a) * 360, cy + Math.sin(a) * 360], 1, mul(E.goldHot, 1.4), calc * (0.6 - q * 0.1)); }
+      }
+      // 「除非，引入系统之外的『变量』」: a light from outside the rings, coming to rest by the half not yet run
+      const tv = k.say('除非');
+      if (k.t > tv) {
+        const u = ease.outCubic(clamp((k.t - tv) / 2.6, 0, 1));
+        const a = top + Math.PI * 1.75, dest: P2 = [cx + Math.cos(a) * 380, cy + Math.sin(a) * 380];
+        const at = (v: number): P2 => [lerp(80, dest[0], v), lerp(-60, dest[1], v) - 90 * Math.sin(Math.PI * v)];
+        const tail: P2[] = Array.from({ length: 14 }, (_, j) => at(Math.max(0, u - j * 0.02)));
+        ink.glow(tail, 1.6, mul(E.bone, 2), 0.8 * (1 - 0.7 * smoothstep(0.8, 1, u)));
+        ink.dot(at(u), 6 + 1.5 * Math.sin(k.t * 2.4), mul([1, 0.95, 0.85] as RGB, 4), 1);
+        ink.dot(at(u), 22, mul(E.goldHot, 0.25), 1);
+      }
+    },
+    ui: (c, k) => {
+      const head = k.at(k.say('水仙十字结社'), 1);
+      if (head > 0) {
+        const [x, y] = project(k.cam, 960, 118, 1);
+        c.globalAlpha = head * k.w; c.textAlign = 'center';
+        c.font = font(F.serif(700), 26); c.fillStyle = '#E9C47E'; c.fillText('水仙十字结社 · 根源之轮', x, y);
+      }
+      CYCLES.forEach((cy_, i) => {
+        const al = k.at(k.say(cy_.name) + 0.4, 0.8);
+        if (al <= 0) return;
+        const [, , X] = cycleLeader(i), left = Math.cos(cy_.ang) < 0;
+        const [x, y] = project(k.cam, X[0] + (left ? -16 : 16), X[1], 1);
+        c.globalAlpha = al * k.w; c.textAlign = left ? 'right' : 'left';
+        c.font = font(F.serif(700), 34); c.fillStyle = '#EEE6D3'; c.fillText(cy_.name, x, y + 10);
+        c.font = font(F.sans(500), 18); c.fillStyle = cy_.css; c.fillText(cy_.en, x, y + 38);
+        const m = k.at(k.say(cy_.key), 0.6);
+        if (m > 0) { c.globalAlpha = m * k.w; c.font = font(F.serif(600), 22); c.fillStyle = '#E9C47E'; c.fillText(cy_.mean, x, y + 70); }
+      });
+      c.globalAlpha = 1;
+    },
+    fx: { kind: 'stars', col: E.bone, amount: 0.4 },
+  },
   ruins_sky: {
     sky: (k) => night({ top: hx('#010207'), mid: hx('#081432'), hor: hx('#1e2c4a'), horY: 840, stars: 1.4, milky: 1.2, milkyAngle: -0.4, neb: 0.4, shell: 0.35, crack: 0.06 + 0.1 * k.at(k.seg.start, 12), crackCol: hx('#ffe6b0', 0.7) }),
     land: { layers: [
@@ -1133,7 +1255,7 @@ export const PICS: Record<string, PicDef> = {
   },
   endcard: {
     sky: () => night({ top: hx('#010207'), mid: hx('#040a18'), hor: hx('#081428'), horY: 900, stars: 1, milky: 0.6, neb: 0.3 }),
-    art: (ink, k) => { rings(ink, 960, 470, 420, mul(E.gold, 0.6), 0.4, k.t, smoothstep(0, 3, k.lt)); },
+    art: (ink, k) => { rings(ink, 960, 470, 420, mul(E.gold, 0.6), 0.2, k.t, smoothstep(0, 3, k.lt)); },   // faint: the sources are set over it
     fx: { kind: 'motes', col: E.gold, amount: 0.5 },
   },
 };

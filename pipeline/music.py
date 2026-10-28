@@ -23,6 +23,7 @@ N = int(DUR * SR)
 dry = np.zeros((N, 2), np.float32)   # percussion, close sounds
 wet = np.zeros((N, 2), np.float32)   # sent to the hall
 CH = {c['id']: c for c in film['chapters']}
+CUES = json.loads((DATA / 'lyrics.json').read_text(encoding='utf-8'))['lines']
 
 
 def hz(m: float) -> float:
@@ -251,6 +252,18 @@ def line_start(chap: str, plate: str, i: int) -> float:
     raise KeyError(plate)
 
 
+def said(chap: str, s: str) -> float:
+    """When the narration of a chapter says `s`: its first character's word time (data/lyrics.json)."""
+    for cue in CUES:
+        if cue.get('chapter') != chap:
+            continue
+        at = [w for w in cue['words'] for _ in w['w']]
+        j = ''.join(w['w'] for w in cue['words']).find(s)
+        if j >= 0:
+            return at[j]['start']
+    raise KeyError(s)
+
+
 def build():
     T = film['title']; END = film['end']
     # ---- prologue: the tree grows in the dark
@@ -344,6 +357,10 @@ def build():
     c = CH['epilogue']; card(c)
     progression(c['cardEnd'] - 1, END['start'] - 1, ['Dm9', 'Bbmaj7', 'F', 'C/E'], 8.0, gain=0.10, bright=1400)
     motif(c['cardEnd'] + 2, gain=0.06)
+    # the four cycles: a bell as each ring lights, a low hit on "no civilisation after this one"
+    for k, (name, note) in enumerate((('亥珀波瑞亚', D4), ('纳塔兰提亚', F4), ('雷穆利亚', A4), ('克劳雅利亚', D5))):
+        bell(note, said('epilogue', name), gain=0.06, ratio=2.0, decay=5, pan=(-0.4, -0.4, 0.4, 0.4)[k])
+    boom(said('epilogue', '不会再有'), gain=0.2, long=4)
     motif(shot_start('epilogue', 'irminsul_end') + 2, gain=0.06, octave=12, pan=-0.2)
     pad(CHORDS['Dmaj'], END['start'] - 1, END['end'] - END['start'] + 1, gain=0.12, bright=2000, a=2.5, r=4)
     choir([D3, A3, 66, A4], END['start'] - 1, END['end'] - END['start'] + 1, gain=0.06)

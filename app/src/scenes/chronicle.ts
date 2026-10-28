@@ -51,8 +51,30 @@ class Film {
     return {
       t, lt: t - seg.start, seg, cam, w,
       L: (i: number) => lines[Math.min(i, lines.length - 1)]?.start ?? seg.start,
+      say: (s: string) => this.said(seg, s),
       at: (a: number, d: number) => smoothstep(a, a + d, t),
     } as PicCtx;
+  }
+
+  private saidAt = new Map<string, number>();
+  /** The word time of `s` in the narration of seg's shot (the subtitle cues' words, joined). */
+  said(seg: Segment, s: string): number {
+    const key = `${seg.i}|${s}`;
+    let v = this.saidAt.get(key);
+    if (v === undefined) {
+      v = seg.start;
+      const sh = seg.shot;
+      if (sh) {
+        const ws = this.ctx.lyrics.words.filter((x) => x.start >= sh.start - 0.3 && x.start < sh.end);
+        const at: number[] = [];
+        const text = ws.map((x, i) => { for (let q = 0; q < x.w.length; q++) at.push(i); return x.w; }).join('');
+        const j = text.indexOf(s);
+        if (j >= 0) v = ws[at[j]!]!.start;
+        else console.warn(`say(): "${s}" not in the narration of ${seg.pic}`);
+      }
+      this.saidAt.set(key, v);
+    }
+    return v;
   }
 
   /** Render one picture at t into rts[slot*2 .. +1]; returns the texture holding it. */

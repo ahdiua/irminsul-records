@@ -11,11 +11,13 @@ multi-speaker) and cuts the audio back into lines: `split` picks the pauses betw
 (segment lengths close to what each line's text predicts, cuts on long pauses). A take after the first opens with the
 previous take's last line, read again and dropped, to carry the tone over. Gemini returns no word times: align.py
 force-aligns each line, and a line that fails the checks (MIN_SCORE / MIN_WORST / MAX_EXTRA: a skipped, garbled or
-invented phrase) is read again together with its neighbours, so it keeps their tone, and cut out of that take. A line
-missing from the cache (a script edit) is read the same way, so a plain run only fills gaps. Requests go one at a time.
+invented phrase) is read again together with its neighbours, so it keeps their tone, and cut out of that take. Lines
+missing from the cache (a script edit) are read the same way, a run of new lines in one take between its cached
+neighbours, so a plain run only fills gaps. Requests go one at a time.
 
-usage:  uv run python pipeline/tts.py [--whole] [--recut TAKE ...] [--audition [narrator|quote ...]] [--realign]
+usage:  uv run python pipeline/tts.py [--whole | --chapters] [--recut TAKE ...] [--audition [narrator|quote ...]] [--realign]
   --whole      re-read the whole film (replaces every cached line)
+  --chapters   trial: a take per chapter, cut at pauses only, no alignment / STT / retakes (by_chapter)
   --recut      cut kept takes (build/tts/takes/<TAKE>.wav, in reading order) again, no API calls
   --audition   the opening lines of a role in every candidate voice (AUDITION) -> build/tts/audition/ (cache untouched)
   --realign    re-run the aligner on every cached take (no API calls)
@@ -45,9 +47,10 @@ MIN_SCORE = -0.6    # mean per-character log-prob
 MIN_WORST = -7.0    # the lowest character's: a dropped word
 MAX_EXTRA = 0.6     # longest loud run on no letter (s): a long invented / repeated stretch
 
-# what Gemini is given to read where it mispronounces: 妲 dá (纳西妲), 叉 chā (夜叉). Subtitles and the aligner keep
-# the real text (the homophones have the same toneless pinyin)
-SAY = {'纳西妲': '纳西达', '夜叉': '夜插'}
+# what Gemini is given to read where it mispronounces: 妲 dá (纳西妲), 叉 chā (夜叉), 瑞 ruì in 亥珀波瑞亚 (three takes
+# said it like the English Hyperborea, "bo-re-a": STT heard 利 / 勒). Subtitles and the aligner keep the real text
+# (the homophones have the same toneless pinyin)
+SAY = {'纳西妲': '纳西达', '夜叉': '夜插', '亥珀波瑞亚': '亥珀波锐亚'}
 
 # Narrator: the user found every "documentary narrator, low voice, gravitas" read too performed (装), and of the
 # plain reads picked Schedar with no instructions (Gemini's own read, ~4.8 chars/s). But with no instructions the
@@ -55,15 +58,20 @@ SAY = {'纳西妲': '纳西达', '夜叉': '夜插'}
 # went (pitch spread 3.3 -> 7.9 st, 3.7 -> 4.9 chars/s). This plain brief (tone study 2026-10-28: line-to-line pitch
 # jumps 1.45 -> 0.82 st, loudness 1.0 -> 0.56 dB, same pace and intonation range; the user approved its sound) keeps
 # it even. What no brief removes is take-to-take chance (~1.2 st between two reads of a passage): hence long takes.
+BRIEFS = {
+    'narrator': ('Read in standard Mandarin Chinese with a plain, steady narrating voice: calm and natural, like reading '
+                 'aloud to a friend. Keep the same pitch, pace and energy from the first line to the last, whatever the '
+                 'content; no dramatic emphasis, no acting.'),
+    'quote': ('Reciting a passage from an ancient sacred chronicle, in standard Mandarin Chinese. Soft, solemn and '
+              'slightly distant, like a voice from long ago; measured, a little slower than speech, about 3.5 '
+              'characters per second.'),
+}
+# Trial (user, 2026-10-28): no style at all. Google's 3.8 TTS guide says to start from an empty style and that
+# instructions to hold the voice steady add drift, which BRIEFS do. The takes read with BRIEFS stay cached under
+# their own keys: put them back in `instructions` to return to them without new requests.
 VOICES = {
-    'narrator': dict(voice='Schedar', instructions=(
-        'Read in standard Mandarin Chinese with a plain, steady narrating voice: calm and natural, like reading aloud '
-        'to a friend. Keep the same pitch, pace and energy from the first line to the last, whatever the content; no '
-        'dramatic emphasis, no acting.')),
-    'quote': dict(voice='Aoede', instructions=(
-        'Reciting a passage from an ancient sacred chronicle, in standard Mandarin Chinese. Soft, solemn and '
-        'slightly distant, like a voice from long ago; measured, a little slower than speech, about 3.5 '
-        'characters per second.')),
+    'narrator': dict(voice='Schedar', instructions=''),
+    'quote': dict(voice='Aoede', instructions=''),
 }
 # candidates for --audition; 'name:bare' = no instructions at all (Gemini's own read). Round 1 (Charon, Orus,
 # Algenib, Iapetus, Alnilam, Sadaltager, Rasalgethi, Gacrux, on a documentary brief) all sounded too performed;
@@ -384,15 +392,85 @@ def whole():
 
 
 def fill():
-    """Lines missing from the cache (script edits), each read with its neighbours."""
+    """Lines missing from the cache (script edits). A run of consecutive missing lines is read in one take with the
+    cached line either side of it (dropped), so the new lines share one tone and carry their neighbours'; the take
+    with the fewest failing lines of TAKES is kept, and a line of it that still fails is read again in context."""
     items, _ = script()
     todo = [i for i, it in enumerate(items) if not ((TTS / f'{key(*it)}.wav').exists() and (TTS / f'{key(*it)}.json').exists())]
     if len(todo) > len(items) // 3:
         print(f'{len(todo)} of {len(items)} lines are not cached: consider --whole', flush=True)
+    runs: list[list[int]] = []
     for i in todo:
-        c, nt = in_context(items, i)
-        write(items[i], c, f'context {nt}')
-        print(f'tts {key(*items[i])} {len(c[0]) / PCM_SR:5.1f}s {c[2]} take {nt}  {items[i][0][:24]}', flush=True)
+        if runs and runs[-1][-1] == i - 1:
+            runs[-1].append(i)
+        else:
+            runs.append([i])
+    for g in runs:
+        lo, hi = max(0, g[0] - 1), min(len(items), g[-1] + 2)
+        best = None
+        for n in range(1, TAKES + 1):
+            r = take(items[lo:hi])[g[0] - lo:g[-1] + 1 - lo]
+            rank = (sum(not flagged(c[2]) for c in r), sum(c[2]['score'] for c in r))
+            if best is None or rank > best[0]:
+                best = (rank, r, n)
+            if rank[0] == len(g):
+                break
+            print(f'  {len(g) - rank[0]} of {len(g)} new lines flagged (take {n})', flush=True)
+        for i, c in zip(g, best[1]):
+            how = f'run {best[2]}'
+            if flagged(c[2]):
+                c2, nt = in_context(items, i)
+                if better(c2, c):
+                    c, how = c2, f'context {nt}'
+            write(items[i], c, how)
+            print(f'tts {key(*items[i])} {len(c[0]) / PCM_SR:5.1f}s {c[2]} {how}  {items[i][0][:24]}', flush=True)
+
+
+def even_marks(text: str, x: np.ndarray) -> list[dict]:
+    """Marks without the aligner: the line's characters spread over its speech by weight() units (a character 1,
+    punctuation a pause)."""
+    hop = PCM_SR // 50
+    n = len(x) // hop
+    on = np.nonzero(20 * np.log10(np.sqrt(np.mean(x[: n * hop].reshape(n, hop) ** 2, axis=1)) + 1e-12) > -45)[0]
+    a, b = (on[0] * hop / PCM_SR, (on[-1] + 1) * hop / PCM_SR) if len(on) else (0.0, len(x) / PCM_SR)
+    unit = [0.0 if ch in '「」《》（）“”·' else 1.2 if ch in '，、；：' else 2.0 if ch in '。！？' else 0.75 if ch == '—'
+            else 0.6 if ch == '…' else 1.0 for ch in text]
+    while unit and unit[-1] != 1.0:                     # closing punctuation: no pause after the last character
+        unit.pop()
+    sec = (b - a) / max(sum(unit), 1e-6)
+    marks, t = [], a
+    for ch, u in zip(text, unit):
+        if u == 1.0 and not ch.isspace():
+            marks.append({'w': ch, 'start': round(t, 3), 'end': round(t + u * sec, 3)})
+        t += u * sec
+    return marks
+
+
+def by_chapter():
+    """Trial (user, 2026-10-28): each chapter (the preview's sections) read in one take, cut into lines at pauses
+    (split) only: no alignment, no STT, no retakes; checked by ear. Marks are spread evenly (even_marks)."""
+    items, chap = script()
+    for ci, ch in enumerate(CHAPTERS):
+        g = [i for i in range(len(items)) if chap[i] == ci]
+        sub = [items[i] for i in g]
+        for attempt in range(2):                         # a take with fewer pauses than line breaks is read again
+            t0 = time.time()
+            x = speak(sub)
+            (TTS / 'takes').mkdir(exist_ok=True)
+            stem = TTS / 'takes' / f'{time.strftime("%m%d-%H%M%S")}-{ch.id}'
+            sf.write(stem.with_suffix('.wav'), x, PCM_SR, subtype='PCM_16')
+            stem.with_suffix('.json').write_text(json.dumps(sub, ensure_ascii=False), encoding='utf-8')
+            try:
+                bounds = split(x, sub)
+                break
+            except ValueError as e:
+                print(f'  {ch.id}: cannot split a {len(x) / PCM_SR:.0f}s take of {len(sub)} lines: {e}', flush=True)
+        else:
+            raise SystemExit(f'{ch.id}: no take could be split')
+        for it, (a, b) in zip(sub, bounds):
+            write(it, (x[a:b], even_marks(it[0], x[a:b]), {}), f'chapter {stem.name}')
+        print(f'{ch.id:10s} {len(sub):3d} lines, {len(x) / PCM_SR:6.1f}s in {time.time() - t0:4.0f}s -> {stem.name}',
+              flush=True)
 
 
 def trim(x: np.ndarray) -> np.ndarray:
@@ -477,5 +555,11 @@ if __name__ == '__main__':
     ap.add_argument('--audition', nargs='*', metavar='ROLE', help='narrator / quote; none = both')
     ap.add_argument('--realign', action='store_true')
     ap.add_argument('--recut', nargs='+', metavar='TAKE', help='kept takes (build/tts/takes/), in reading order')
+    ap.add_argument('--chapters', action='store_true', help='trial: a take per chapter, no style, no checks')
     a = ap.parse_args()
-    audition(a.audition) if a.audition is not None else main(a.whole, a.realign, a.recut)
+    if a.audition is not None:
+        audition(a.audition)
+    elif a.chapters:
+        by_chapter()
+    else:
+        main(a.whole, a.realign, a.recut)

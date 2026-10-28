@@ -6,7 +6,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $app = Join-Path $root 'app'
 $out = Join-Path $root 'out'
 $dur = [double](Get-Content (Join-Path $root 'data/chapters.json') -Raw | ConvertFrom-Json).duration
-$cuts = @(0, 204, 408, 612, $dur)
+$cuts = @(0, [math]::Round($dur / 4), [math]::Round($dur / 2), [math]::Round($dur * 3 / 4), $dur)   # equal quarters
 $jobs = @()
 for ($k = 0; $k -lt 4; $k++) {
   $a = $cuts[$k]; $b = $cuts[$k + 1]

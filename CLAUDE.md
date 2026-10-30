@@ -76,7 +76,7 @@ $env:PDOOM_NO_HMR=1; bunx --bun vite --port 5190 --strictPort --host 127.0.0.1  
                                                                                   # private server times out here
 bun scripts/render.ts stills --url http://127.0.0.1:5190 --t 58.4,122.5 --out ../out/wip/x
 pwsh -File pipeline/render_final.ps1      # 4K60 HEVC Main10 NVENC, 4 parallel quarters -> out/teyvat-chronicle-4k.mp4 (~45 min)
-$env:PDOOM_URL='http://127.0.0.1:5190'; bun scripts/cover.ts   # title card with the cover's words (世界树档案) -> out/cover.jpg, cover-4k.png
+$env:PDOOM_URL='http://127.0.0.1:5190'; bun scripts/cover.ts   # the title card (世界树档案, the film's own since 2026-10-30) -> out/cover.jpg, cover-4k.png
 ```
 The finished film is the 4K render only: the user wants no 1080p version of it (2026-10-28).
 The preview may run with `--host 0.0.0.0` (the user opens it over ZeroTier, 192.168.168.87:5190).
@@ -89,7 +89,9 @@ game text, in this order: 米游社观测枢 (official; from its tab, `fetch` `a
 search/content?app_sn=ys_obc&keyword=…` and `…/content/info?app_sn=ys_obc&content_id=…`), BWIKI (from its tab,
 `/ys/api.php` search / `action=parse` works; unquoted search terms only, ~1 req/s), 萌娘百科 (no API or `action=raw`;
 fetch page HTML from a moegirl tab, the body is inside `<template id="MOE_SKIN_TEMPLATE_BODYCONTENT">`; fast requests hit
-Cloudflare; it has errors, e.g. it calls the last king 伊尔明苏尔). Captures go to `docs/research/<site>/`.
+Cloudflare; it has errors, though not where it seems: the last king's full name IS 伊尔明苏尔, same as the tree,
+in the game's dialogue (雷利尔: 「黑日之王伊尔明苏尔」), while BWIKI's quotes mostly say 伊尔明). Captures go to
+`docs/research/<site>/`.
 
 ## Shell
 PowerShell 7. Python one-liners with quotes break in pwsh: write a script file.

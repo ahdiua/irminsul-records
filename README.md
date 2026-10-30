@@ -7,7 +7,7 @@
 ## 成片
 
 - `out/teyvat-chronicle-4k.mp4`：3840×2160，60 fps，HEVC Main10，AAC 256k，14 分 39 秒。只出这一个版本。
-- `out/cover.jpg`（1920×1080）和 `out/cover-4k.png`：视频封面：片头标题卡，文字换成「世界树档案」（`app/scripts/cover.ts`）。
+- `out/cover.jpg`（1920×1080）和 `out/cover-4k.png`：视频封面：片头标题卡「世界树档案」（`app/scripts/cover.ts`；片中 57 秒处的标题卡用同样的文字）。
 
 ## 结构
 

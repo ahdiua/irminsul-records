@@ -276,8 +276,8 @@ export class Overlay {
     c.restore();
   }
 
-  /** The title card's words (scripts/cover.ts sets the cover's own). */
-  titleText = { en: 'A CHRONICLE OF TEYVAT', zh: '提瓦特编年史', sub: '从龙之世，到至冬' };
+  /** The title card's words, the same as the cover's (scripts/cover.ts can set others). */
+  titleText = { en: 'IRMINSUL RECORDS', zh: '世界树档案', sub: '提瓦特编年史' };
 
   private title(c: CanvasRenderingContext2D, t: number) {
     const { start, end } = FILM.title;

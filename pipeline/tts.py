@@ -48,9 +48,10 @@ MIN_WORST = -7.0    # the lowest character's: a dropped word
 MAX_EXTRA = 0.6     # longest loud run on no letter (s): a long invented / repeated stretch
 
 # what Gemini is given to read where it mispronounces: 妲 dá (纳西妲), 叉 chā (夜叉), 瑞 ruì in 亥珀波瑞亚 (three takes
-# said it like the English Hyperborea, "bo-re-a": STT heard 利 / 勒). Subtitles and the aligner keep the real text
-# (the homophones have the same toneless pinyin)
-SAY = {'纳西妲': '纳西达', '夜叉': '夜插', '亥珀波瑞亚': '亥珀波锐亚'}
+# said it like the English Hyperborea, "bo-re-a": STT heard 利 / 勒), 亥 hài in the same name (the user's ear, 2026-11-02:
+# read like 海; STT heard 海 in both lines, and its diff is toneless so it passed). Subtitles and the aligner keep the
+# real text (the homophones have the same toneless pinyin)
+SAY = {'纳西妲': '纳西达', '夜叉': '夜插', '亥珀波瑞亚': '害珀波锐亚'}
 
 # Narrator: the user found every "documentary narrator, low voice, gravitas" read too performed (装), and of the
 # plain reads picked Schedar with no instructions (Gemini's own read, ~4.8 chars/s). But with no instructions the

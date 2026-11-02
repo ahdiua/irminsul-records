@@ -390,6 +390,21 @@ export function figure(c: C, x: number, base: number, h: number, pose = 'stand',
   c.restore();
 }
 
+/** A deer walking side-on; `h` = height at the head, `phase` (radians) swings the legs. Legs are stroked: set strokeStyle. */
+export function deer(c: C, x: number, base: number, h: number, phase: number, facing = 1) {
+  c.save(); c.translate(x, base); c.scale(facing * h / 100, h / 100);
+  c.lineWidth = 5; c.lineCap = 'round';
+  for (const [hip, ph] of [[-26, 0], [-20, Math.PI], [20, Math.PI], [26, 0]] as const) {
+    c.beginPath(); c.moveTo(hip, -48); c.lineTo(hip + Math.sin(phase + ph) * 11, 0); c.stroke();
+  }
+  c.beginPath(); c.ellipse(0, -54, 34, 13, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.moveTo(22, -62); c.quadraticCurveTo(33, -74, 38, -88); c.lineTo(48, -86); c.lineTo(36, -56); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(45, -90, 9, 5, 0.2, 0, Math.PI * 2); c.fill();
+  c.lineWidth = 2;
+  for (const dx of [-3, 3]) { c.beginPath(); c.moveTo(40 + dx, -94); c.lineTo(36 + dx * 2, -108); c.stroke(); }
+  c.restore();
+}
+
 /** A small floating companion (a round head, a cape): the Traveler's guide. */
 export function companion(c: C, x: number, y: number, s: number) {
   c.beginPath(); c.arc(x, y, s, 0, Math.PI * 2); c.fill();

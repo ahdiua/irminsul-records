@@ -89,10 +89,12 @@ class Film {
     if (def.back) { this.lb.clear(); def.back(ink, k); this.lb.render(r, skyRT); }
     let target = skyRT;
     if (def.land) {
+      const at = def.landAt?.(k);
       const revs = def.land.layers.map((_, i) => {
         const fast = seg.n > 1;                       // montage shots last ~5 s: inscribe quicker
         const d = def.landDelay?.[i] ?? i * (fast ? 0.2 : 0.45);
-        return smoothstep(seg.start - 0.2 + d, seg.start - 0.2 + d + (fast ? 1.6 : 2.9), t);
+        const a = at?.[i] ?? seg.start - 0.2 + d;
+        return smoothstep(a, a + (fast ? 1.6 : 2.9), t);
       });
       this.land.render(r, skyRT.texture, picRT, seg.pic, def.land, k.cam, t, revs, sp.hor);
       target = picRT;

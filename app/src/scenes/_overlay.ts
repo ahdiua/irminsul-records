@@ -95,13 +95,16 @@ export class Overlay {
       const cues = this.lyrics.lines.filter((l) => (l as any).quote && l.end > ln.start - 0.6 && l.start < ln.end + 0.3);
       const words = cues.flatMap((q) => q.words);
       const body = ln.text.replace(/^「|」$/g, '');
+      // a row holds whole clauses: a sentence that fits stays on one row, a longer one breaks at a comma
       const rows: string[] = [];
-      let cur = '';
-      for (const chh of body) {
-        cur += chh;
-        if ((cur.length >= 15 && '，。；'.includes(chh)) || cur.length >= 19) { rows.push(cur); cur = ''; }
+      for (const sentence of body.match(/[^。；]+[。；]?/g) ?? []) {
+        let cur = '';
+        for (const clause of sentence.match(/[^，。；]+[，。；]?/g) ?? []) {
+          if (cur && cur.length + clause.length > 19) { rows.push(cur); cur = ''; }
+          cur += clause;
+        }
+        if (cur) rows.push(cur);
       }
-      if (cur) rows.push(cur);
       c.save();
       c.globalAlpha = a;
       // a darkened band for the card

@@ -28,6 +28,8 @@ export interface PicDef {
   sky: (k: PicCtx) => SkyParams;
   land?: LandDef;
   landDelay?: number[];               // per-layer inscription delays (s)
+  /** per-layer inscription start times (absolute), to time a layer to the narration; undefined = landDelay's */
+  landAt?: (k: PicCtx) => (number | undefined)[];
   back?: (ink: Ink, k: PicCtx) => void;
   art?: (ink: Ink, k: PicCtx) => void;
   /** element emblems (elements.svg), added over the art */
@@ -51,6 +53,50 @@ const night = (o: Partial<SkyParams> = {}): SkyParams => ({
 });
 
 // ------------------------------------------------------------------ shared drawings
+
+// ---- paradise: the walkers on its field (plate coordinates; further = smaller)
+const PEOPLE = Array.from({ length: 13 }, (_, i) => {
+  const f = hash(i, 71);
+  return { x: 790 + hash(i, 72) * 560, y: 868 + f * 84, h: 30 + f * 34, dir: i % 2 ? 1 : -1, v: 5 + hash(i, 73) * 9, d: i * 0.17 };
+});
+const PARADISE_ANGELS: [number, number, number, number][] = [[880, 1, 66, 905], [1120, -1, 58, 915], [1290, -1, 52, 900]];   // x, direction, size, feet
+/** 0..1 the light turning, from 唯一的禁忌 to the end of the shot. */
+const paradiseDusk = (k: PicCtx) => k.at(k.L(3) - 0.3, 6.8);
+
+// ---- the Golden City
+/** The three moons as `shattered` has them; `g` = 1 gone (the two shards scattered, the frost moon flung off) .. 0 whole. */
+const threeMoons = (g: number) => [
+  { x: lerp(1500, 1900, g), y: lerp(260, -60, g), r: lerp(80, 30, g), col: hx('#bfe6ff', 1.0), maria: 0.6, alpha: 1 - smoothstep(0.8, 1, g) },
+  { x: 600, y: 330, r: 130, col: hx('#f4f0e6'), alpha: 1 - smoothstep(0, 0.08, g) },
+  { x: 1060, y: 250, r: 95, col: hx('#e8e0ff'), iri: 0.45, alpha: 1 - smoothstep(0, 0.08, g) },
+];
+/** 1 .. 0: how far `rewind` still has to go; the moons are whole as the narration says 更早. */
+const rewound = (k: PicCtx) => 1 - k.at(k.seg.start + 0.6, k.say('更早') + 0.3 - k.seg.start - 0.6);
+const HB_TREE = makeTree(240, 884, 680, 17, 7, false);
+/** A row of towers from x0 to x1: uneven widths and gaps, tallest around the middle of the city. */
+const towerRow = (x0: number, x1: number, seed: number, wMin: number, wMax: number, hMin: number, hMax: number, al: number) => {
+  const out: { x: number; w: number; h: number; kind: number; dir: number; delay: number; al: number }[] = [];
+  for (let x = x0, i = 0; x < x1; i++) {
+    const w = lerp(wMin, wMax, hash(i, seed) ** 1.5), c = Math.max(0, 1 - Math.abs((x - x0) / (x1 - x0) - 0.5) * 1.9);
+    out.push({ x: x + w / 2, w, h: lerp(hMin, hMax, 0.25 * hash(i, seed + 1) + 0.75 * c * (0.45 + 0.55 * hash(i, seed + 2))), kind: Math.floor(hash(i, seed + 3) * 4), dir: hash(i, seed + 4) < 0.5 ? -1 : 1, delay: hash(i, seed + 5) * 1.4, al });
+    x += w + lerp(2, 40, hash(i, seed + 6) ** 1.8);
+  }
+  return out;
+};
+const HB_TOWERS = [
+  ...towerRow(800, 1860, 101, 16, 34, 90, 330, 0.42),
+  ...towerRow(780, 1880, 111, 28, 68, 90, 430, 1),
+  { x: 1290, w: 70, h: 660, kind: 1, dir: -1, delay: 0.55, al: 1 },        // 精金塔: the one that reached for the sky
+];
+const HB_WALL: P2[] = (() => {                                              // the city wall, crenellated
+  const pts: P2[] = [];
+  for (let x = 770; x < 1890; x += 26) pts.push([x, 836], [x + 13, 836], [x + 13, 830], [x + 26, 830]);
+  return pts;
+})();
+const HB_NAILS: [number, number, number][] = [[1010, 0, 0.01], [1560, 0.3, -0.015], [1290, 0.55, 0.005], [1740, 0.85, -0.01], [850, 1.1, 0.02]];   // x, delay, tilt
+/** When the first blue nail lands. */
+const hbHit = (k: PicCtx) => k.say('天钉') + 0.7;
+const SEELIE_ANGELS: [number, number, number][] = [[760, 824, 120], [1250, 880, 70], [470, 872, 74], [1540, 868, 78], [210, 884, 62], [1060, 898, 50], [1745, 886, 58]];   // x, chest y, size; feet on the ground line (y ≈ 950)
 
 const IRMIN = makeTree(960, 930, 800, 11, 8);
 const IRMIN_SMALL = makeTree(960, 905, 760, 5, 7);
@@ -89,6 +135,88 @@ function robed(ink: Ink, x: number, y: number, s: number, col: RGB, al: number) 
   for (let i = 0; i <= 14; i++) { const u = i / 14; hem.push([x + lerp(-0.4, 0.4, u) * s, y + (1.05 + 0.025 * Math.sin(u * Math.PI * 4) + 0.04 * Math.sin(Math.PI * u)) * s]); }
   ink.glow(hem, 1.3, c, al);
   for (const f of [-0.11, 0, 0.12]) ink.poly([[x + f * 0.5 * s, y - 0.1 * s], [x + f * 0.9 * s, y + 0.45 * s], [x + f * 1.7 * s, y + 1.05 * s]], 1, mul(col, 0.8), al * 0.8);
+}
+
+/**
+ * An angel, chest at (x, y): a robed figure with a pair of feathered wings (苍银的羽翼). `wing` 0 folded .. 1 raised.
+ * `fall` 0..1 crumbles her: the strokes break into pieces that drift apart and fade, and sparks rise from the body.
+ */
+function angel(ink: Ink, x: number, y: number, s: number, col: RGB, al: number, t: number, o: { wing?: number; fall?: number; seed?: number } = {}) {
+  const wing = o.wing ?? 1, fall = o.fall ?? 0, seed = o.seed ?? 1, c = mul(col, 1.6);
+  if (al <= 0 || fall >= 1) return;
+  const side = (sg: number): P2[] => [[x + sg * 0.035 * s, y - 0.69 * s], [x + sg * 0.07 * s, y - 0.63 * s], [x + sg * 0.19 * s, y - 0.58 * s], [x + sg * 0.23 * s, y - 0.46 * s],
+    [x + sg * 0.2 * s, y - 0.12 * s], [x + sg * 0.22 * s, y + 0.35 * s], [x + sg * 0.3 * s, y + 0.75 * s], [x + sg * 0.4 * s, y + 1.05 * s]];
+  const hem: P2[] = [];
+  for (let i = 0; i <= 14; i++) { const u = i / 14; hem.push([x + lerp(-0.4, 0.4, u) * s, y + (1.05 + 0.04 * Math.sin(Math.PI * u)) * s]); }
+  const head = ellipse(x, y - 0.8 * s, 0.085 * s, 0.11 * s, 20);
+  const lines: P2[][] = [[...head, head[0]!], side(-1), side(1), hem];
+  for (const sg of [-1, 1]) {
+    const a = lerp(-1.25, 0.55, wing) + 0.05 * Math.sin(t * 1.1 + seed), span = s * lerp(0.6, 1.15, wing);
+    const sx = x + sg * 0.17 * s, sy = y - 0.52 * s;
+    const bone: P2[] = [];
+    for (let i = 0; i <= 10; i++) { const u = i / 10, aa = a - 0.55 * u; bone.push([sx + sg * Math.cos(aa) * span * u, sy - Math.sin(aa) * span * u]); }
+    lines.push(bone);
+    for (let f = 1; f <= 8; f++) {
+      const u = f / 8, p = bone[Math.round(u * 10)]!, b = Math.max(a - lerp(1.5, 0.45, u), -Math.PI / 2), len = span * lerp(0.62, 0.42, u);   // folded, they hang straight down beside her
+      lines.push([p, [p[0] + sg * Math.cos(b) * len, p[1] - Math.sin(b) * len]]);
+    }
+  }
+  const fade = al * (1 - fall) ** 1.3;
+  lines.forEach((pts, i) => {
+    if (fall <= 0) { ink.glow(pts, 1.3, c, al); return; }
+    for (let j = 0; j + 1 < pts.length; j += 2) {
+      const h = hash(i * 37 + j, seed), h2 = hash(i * 37 + j, seed + 1);
+      const d = fall ** 1.5 * s * (0.3 + 1.1 * h), ang = h2 * Math.PI * 2;
+      const dx = Math.cos(ang) * d, dy = Math.sin(ang) * d * 0.5 + fall * fall * s * 0.45;
+      ink.glow(pts.slice(j, j + 3).map((p) => [p[0] + dx, p[1] + dy] as P2), 1.2, c, fade);
+    }
+  });
+  if (fall > 0) for (let n = 0; n < 26; n++) {
+    const h = hash(n, seed + 2), h2 = hash(n, seed + 3);
+    ink.dot([x + (h - 0.5) * 0.7 * s + Math.sin(t + n) * 8, y + (h2 - 0.3) * 1.2 * s - fall * s * (0.4 + h2)], 1.4 + 2 * h, mul(col, 2.6), al * Math.sin(Math.PI * fall));
+  }
+}
+
+/** Half-width (of w) of a Golden City tower at height u (0 foot .. 1 top). kind: 0 spire, 1 stepped, 2 dome, 3 crowned. */
+function towerWidth(kind: number, u: number): number {
+  switch (kind) {
+    case 1: return u < 0.5 ? 0.5 : u < 0.76 ? 0.34 : u < 0.9 ? 0.2 : 0.2 * (1 - u) / 0.1;
+    case 2: return u < 0.8 ? 0.5 : 0.5 * Math.sqrt(Math.max(0, 1 - ((u - 0.8) / 0.2) ** 2));
+    case 3: return u < 0.86 ? 0.42 : u < 0.92 ? 0.42 + (u - 0.86) / 0.06 * 0.16 : 0.58;
+    default: return u < 0.78 ? 0.5 : 0.5 * (1 - u) / 0.22;
+  }
+}
+
+/** A tower of the Golden City, standing on (x, base): outline, floors hatched across it, `lit` windows. It topples about
+ *  its base with `u` 0..1 toward side `dir` and sinks, leaving a stump. `al`: dimmer for the row behind. */
+function goldTower(ink: Ink, x: number, base: number, w: number, h: number, kind: number, col: RGB, lit: number, u: number, dir: number, seed: number, al = 1) {
+  const ang = ease.inQuad(u) * 1.25 * dir, sink = ease.inQuad(u) * h * 0.3;
+  const R = (px: number, py: number): P2 => [x + px * Math.cos(ang) - py * Math.sin(ang), base + px * Math.sin(ang) + py * Math.cos(ang) + sink];
+  const a = al * (1 - smoothstep(0.55, 1, u)), u0 = u > 0 ? 0.14 : 0;             // what falls starts above the stump
+  if (a > 0) {
+    const left: P2[] = [], right: P2[] = [];
+    for (let i = 0; i <= 30; i++) { const v = lerp(u0, 1, i / 30), hw = towerWidth(kind, v) * w; left.push(R(-hw, -h * v)); right.push(R(hw, -h * v)); }
+    ink.glow([...left, ...right.reverse()], 1.1, col, a);
+    for (let y = u0 * h + 7; y < h * 0.97; y += 7) { const hw = towerWidth(kind, y / h) * w; ink.seg(R(-hw, -y), R(hw, -y), 1, mul(col, 0.2), a * (Math.round(y / 7) % 8 ? 0.55 : 1.6)); }
+    const rows = Math.max(3, Math.round(h / 30));
+    for (let j = 1; j < rows; j++) for (const sx of w > 34 ? [-0.25, 0.25] : [0]) {
+      if (hash(j * 7 + 1, seed + (sx > 0 ? 50 : 0)) < 0.35) continue;
+      const v = (j / rows) * 0.85, hw = towerWidth(kind, v) * w;
+      ink.dot(R(sx * 2 * hw, -h * v), 1.5, mul(E.goldHot, 2.2), a * lit);
+    }
+  }
+  if (u > 0) ink.glow([[x - w / 2, base], [x - w / 2, base - h * 0.14], [x - w * 0.1, base - h * 0.1], [x + w * 0.2, base - h * 0.16], [x + w / 2, base - h * 0.12], [x + w / 2, base]], 1.1, mul(col, 0.6), 0.8 * al);
+}
+
+/** Rings of a nail's impact, flattened on the ground: seen from far off. */
+function groundRings(ink: Ink, x: number, y: number, t: number, te: number, col: RGB, max: number) {
+  if (t < te) return;
+  for (let k = 0; k < 2; k++) {
+    const u = clamp((t - te - k * 0.3) / 2, 0, 1);
+    if (u <= 0 || u >= 1) continue;
+    const r = max * ease.outCubic(u);
+    ink.glow(ellipse(x, y, r, r * 0.11, 56), 1.1, mul(col, 1.1), (1 - u) ** 1.5, 1, true);
+  }
 }
 
 /**
@@ -563,23 +691,107 @@ export const PICS: Record<string, PicDef> = {
     ] },
     fx: { kind: 'stars', col: E.bone, amount: 0.3 },
   },
+  // The world fills in as the narration names it (飞鸟, 走兽, 花木, 人类), then the light turns as they look up.
   paradise: {
-    sky: () => ({ top: hx('#1a2a48'), mid: hx('#6a7aa0'), hor: hx('#ffe0a8', 1.0), horY: 760, neb: 0.2, nebA: hx('#ffffff', 0.2), nebB: hx('#ffe0a8', 0.2), glow: [1350, 520, 360], glowCol: hx('#fff0c8', 0.8), rays: 0.8, clouds: 0.5, cloudY: 520, cloudCol: hx('#8a90b0'), cloudLit: hx('#fff0d0', 0.9) }),
+    sky: (k) => {
+      const d = paradiseDusk(k);
+      return { top: mixc(hx('#1a2a48'), hx('#0e1230'), d), mid: mixc(hx('#6a7aa0'), hx('#4a3a60'), d), hor: mixc(hx('#ffe0a8'), hx('#d8804a'), d), horY: 760, neb: 0.2, nebA: hx('#ffffff', 0.2), nebB: hx('#ffe0a8', 0.2),
+        glow: [1350, 520, 360], glowCol: mixc(hx('#fff0c8', 0.8), hx('#ff9a50', 0.5), d), rays: lerp(0.8, 0.12, d), clouds: 0.5, cloudY: 520, cloudCol: mixc(hx('#8a90b0'), hx('#3a3050'), d), cloudLit: mixc(hx('#fff0d0', 0.9), hx('#ffb070', 0.6), d) };
+    },
     land: { layers: [
-      LY((c, r) => { S.city(c, 380, 1600, 790, 220, r, 'dome'); S.spire(c, 980, 795, 30, 330); S.dome(c, 980, 795, 90); S.ground(c, 785, 4, 7); }, 0.55, hx('#5a6080'), hx('#fff4d8', 0.8), { fog: 0.55, hatch: 0.3 }),
-      LY((c, r) => { for (let i = 0; i < 5; i++) S.tree(c, 120 + i * 150 + r() * 40, 1000, 260 + r() * 120, 'round', r); for (let i = 0; i < 4; i++) S.tree(c, 1450 + i * 140, 1010, 240 + r() * 120, 'round', r); S.ground(c, 990, 10, 5); }, 0.95, hx('#283048'), hx('#fff4d8', 1.0), { fog: 0.15, hatch: 0.4 }),
+      LY((c, r) => { S.city(c, 380, 1600, 810, 220, r, 'dome'); S.spire(c, 980, 810, 30, 345); S.dome(c, 980, 810, 90); }, 0.55, hx('#5a6080'), hx('#fff4d8', 0.8), { fog: 0.55, hatch: 0.3 }),
+      LY((c) => S.dunes(c, 800, 22, 520, 3), 0.55, hx('#5a6080'), hx('#fff4d8', 0.8), { fog: 0.55, hatch: 0.3 }),
+      LY((c) => S.ground(c, 990, 10, 5), 0.95, hx('#283048'), hx('#fff4d8', 1.0), { fog: 0.15, hatch: 0.4 }),
+      LY((c, r) => { for (let i = 0; i < 5; i++) S.tree(c, 120 + i * 150 + r() * 40, 1000, 260 + r() * 120, 'round', r); for (let i = 0; i < 4; i++) S.tree(c, 1450 + i * 140, 1010, 240 + r() * 120, 'round', r); }, 0.95, hx('#283048'), hx('#fff4d8', 1.0), { fog: 0.15, hatch: 0.4 }),
     ], light: [1350, 520], fog: hx('#c8c0c0') },
+    landAt: (k) => [k.L(2) - 0.3, undefined, undefined, k.say('花木') - 0.4],
     art: (ink, k) => {
+      const dusk = paradiseDusk(k);
+      // 飞鸟: they fly in from both sides
+      const fly = k.say('飞鸟');
       for (let i = 0; i < 9; i++) {
-        const h = hash(i, 12);
-        const x = 300 + h * 1300 + Math.sin(k.t * 0.3 + i) * 60, y = 220 + hash(i, 13) * 260 + Math.cos(k.t * 0.5 + i) * 20;
-        const f = Math.sin(k.t * 2.2 + i) * 0.35;
-        ink.dot([x, y], 3, mul(E.goldHot, 2.4), 0.9);
-        ink.poly([[x - 26, y - 14 - f * 20], [x - 10, y - 2], [x, y]], 1.2, mul(E.bone, 1.4), 0.8);
-        ink.poly([[x + 26, y - 14 - f * 20], [x + 10, y - 2], [x, y]], 1.2, mul(E.bone, 1.4), 0.8);
+        const h = hash(i, 12), g = k.at(fly - 0.3 + h * 1.2, 2.6);
+        if (g <= 0) continue;
+        const x = 300 + h * 1300 + Math.sin(k.t * 0.3 + i) * 60 + (1 - g) * (i % 2 ? 1300 : -1300), y = 220 + hash(i, 13) * 260 + Math.cos(k.t * 0.5 + i) * 20;
+        const f = Math.sin(k.t * 2.2 + i) * 0.35, al = g * (1 - 0.5 * dusk);
+        ink.dot([x, y], 3, mul(E.goldHot, 2.4), 0.9 * al);
+        ink.poly([[x - 26, y - 14 - f * 20], [x - 10, y - 2], [x, y]], 1.2, mul(E.bone, 1.4), 0.8 * al);
+        ink.poly([[x + 26, y - 14 - f * 20], [x + 10, y - 2], [x, y]], 1.2, mul(E.bone, 1.4), 0.8 * al);
       }
+      // 甘霖: a golden rain
+      const rain = k.at(k.say('甘霖') - 0.2, 0.8) * (1 - k.at(k.say('甘霖') + 2.8, 1.4));
+      if (rain > 0) {
+        ink.d = 0.85;
+        for (let i = 0; i < 110; i++) {
+          const v = 620 + hash(i, 74) * 300, y = ((hash(i, 75) * 1020 + k.t * v) % 1020) - 120, x = hash(i, 76) * 2160 - 120;
+          ink.seg([x, y], [x + 3, y + 34], 1.2, mul(E.goldHot, 1.5), 0.55 * rain * (0.5 + 0.5 * hash(i, 77)));
+        }
+      }
+      // 矿藏: the ground glints
+      const ore = k.say('矿藏');
+      ink.d = 0.85;
+      for (let i = 0; i < 26; i++) {
+        const g = k.at(ore - 0.1 + hash(i, 78) * 1.5, 0.7);
+        if (g <= 0) continue;
+        const x = 790 + hash(i, 79) * 580, y = 850 + hash(i, 80) * 105, r = (3 + hash(i, 81) * 6) * g, tw = 0.65 + 0.35 * Math.sin(k.t * 2.4 + i * 1.7);
+        ink.glow([[x, y - r * 1.5], [x + r, y], [x, y + r * 1.5], [x - r, y]], 1, mul(i % 3 ? E.goldHot : E.cryo, 2 * tw), g * (1 - 0.7 * dusk), 1, true);
+      }
+      // 天上的使者: they come down and walk among the people; at 渴望 they go back up
+      const halt = k.say('禁忌');
+      PARADISE_ANGELS.forEach(([x0, dir, s, feet], i) => {
+        const t0 = k.say('使者') + i * 0.5, g = k.at(t0 - 0.2, 2.8), up = k.at(k.L(4) - 0.2 + i * 0.3, 2.6);
+        if (g <= 0 || up >= 1) return;
+        const y = feet - 1.05 * s + (1 - g) * -900 - up * 1000, x = x0 + dir * 8 * Math.max(0, Math.min(k.t, halt) - t0);
+        ink.d = 0.85;
+        angel(ink, x, y, s, E.goldHot, Math.min(1, g * 2.5) * (1 - up) * (1 - 0.3 * dusk), k.t, { wing: lerp(lerp(1, 0.3, g), 1, up), seed: i + 1 });
+      });
+      ink.d = 1;
     },
     fx: { kind: 'motes', col: E.goldHot, amount: 0.8 },
+    // dark silhouettes can't be drawn in additive line art: the living things are on the overlay, over the land
+    ui: (c, k) => {
+      const dusk = paradiseDusk(k), z = 1 + (k.cam.zoom - 1) * 0.85;
+      const halt = k.say('禁忌');
+      if (dusk > 0) { c.globalAlpha = k.w * dusk * 0.46; c.fillStyle = '#120c20'; c.fillRect(0, 0, 1920, 1080); }
+      const dark = '#23253c', rim = `rgba(255,236,200,${0.8 * (1 - 0.6 * dusk)})`;
+      const col = (s: string) => { c.fillStyle = s; c.strokeStyle = s; };
+      // 渴望: the tower on the horizon climbs out of the frame's reach, in the colour of the city around it
+      const climb = k.at(k.L(4) - 0.1, 4.6);
+      if (climb > 0) {
+        const top = lerp(466, 24, climb), P = (x: number, y: number) => project(k.cam, x, y, 0.55);
+        c.globalAlpha = k.w; c.lineWidth = 2; c.lineJoin = 'round';
+        c.fillStyle = `rgb(${lerp(165, 124, dusk)},${lerp(158, 122, dusk)},${lerp(165, 136, dusk)})`; c.strokeStyle = 'rgba(255,240,210,0.8)';
+        c.beginPath();
+        for (const [i, [x, y]] of ([[965, 560], [974, top + 44], [980, top], [986, top + 44], [995, 560]] as const).entries()) { const [px, py] = P(x, y); if (i) c.lineTo(px, py); else c.moveTo(px, py); }
+        c.fill(); c.stroke();
+      }
+      // 走兽: deer cross the field from the right
+      const w0 = k.say('走兽');
+      for (let i = 0; i < 4; i++) {
+        const t0 = w0 + i * 1.4, dt = k.t - t0;                                 // in single file, ahead of the people
+        if (dt <= 0) continue;
+        const [x, y] = project(k.cam, 1400 - dt * 62, 862 + (i % 2) * 12, 0.85), h = (38 + (i % 2) * 5) * z;
+        const al = smoothstep(0, 1, dt) * smoothstep(800, 870, x) * (1 - k.at(k.L(3) - 0.5, 1.5));
+        if (al <= 0) continue;
+        c.globalAlpha = al * k.w;
+        col(rim); S.deer(c, x, y, h * 1.05, dt * 4, -1);
+        col(dark); S.deer(c, x, y, h, dt * 4, -1);
+      }
+      // 人类: small figures on the field, wandering till 禁忌; at 渴望 they all turn and walk to the tower
+      const born = k.say('人类'), toTower = k.at(k.L(4) - 0.1, 5.5);
+      for (const p of PEOPLE) {
+        const al = k.at(born + p.d, 1);
+        if (al <= 0) continue;
+        const dt = Math.max(0, Math.min(k.t, halt) - born - p.d), xw = clamp(p.x + p.dir * p.v * dt, 800, 1340);
+        const px = lerp(xw, 980 + (xw - 980) * 0.45, toTower), stride = toTower > 0 ? k.t : dt;
+        const [x, y] = project(k.cam, px, p.y - Math.abs(Math.sin(stride * 3 + p.d)) * 1.2, 0.85), h = p.h * z;
+        const face = toTower > 0 ? (xw < 980 ? 1 : -1) : p.dir;
+        c.globalAlpha = al * k.w;
+        col(rim); S.figure(c, x, y, h * 1.07, 'stand', face);
+        col(dark); S.figure(c, x, y, h, 'stand', face);
+      }
+      c.globalAlpha = 1;
+    },
     post: () => ({ bloom: 0.5, vignette: 0.35 }),
   },
 
@@ -680,6 +892,96 @@ export const PICS: Record<string, PicDef> = {
     art: (ink) => { ink.d = 0.8; ink.glow([[960, 460], [960, 200]], 1.2, mul(E.goldHot, 1.2), 0.8); ink.d = 1; },
     fx: { kind: 'bubbles', col: mul(E.hydro, 1.2), amount: 0.8 },
   },
+  // Back before the war: the moons the last shots broke come together again (the same shards, run backwards).
+  rewind: {
+    sky: (k) => {
+      const g = rewound(k);
+      return night({ top: mixc(hx('#030818'), hx('#020108'), g), mid: mixc(hx('#0e2038'), hx('#120a28'), g), hor: mixc(hx('#4a6a8a'), hx('#2a1a3a'), g), horY: 840, stars: 1, neb: lerp(0.25, 0.6, g), nebA: hx('#7a3bd6', 0.4 * g), nebB: hx('#c8243f', 0.3 * g), moons: threeMoons(g) });
+    },
+    land: { layers: [LY((c) => S.ridge(c, 960, 120, 300, 41, 0.5), 0.9, hx('#06080e'), hx('#a9c8f0', 0.6))] },
+    art: (ink, k) => {
+      const g = rewound(k), al = smoothstep(0, 0.06, g);
+      ink.d = 0.25;
+      shatter(ink, 600, 330, 130, g, hx('#f4f0e6', 1.2), 3, al);
+      shatter(ink, 1060, 250, 95, g, hx('#e0d0ff', 1.2), 9, al);
+      ink.d = 1;
+      // the debris of the war, falling upward
+      for (let i = 0; i < 16; i++) {
+        const u = g * (0.4 + hash(i, 31) * 0.9) - hash(i, 33) * 0.3;
+        if (u <= 0 || u > 1) continue;
+        const x0 = 500 + hash(i, 31) * 900, y0 = 250 + hash(i, 32) * 100;
+        ink.glow([[x0 + u * 200, y0 + u * u * 700], [x0 + u * 200 - 30, y0 + u * u * 700 + 90]], 1.5, mul(E.goldHot, 1.5), Math.min(1, u * 4));
+      }
+    },
+    fx: { kind: 'stars', col: E.bone, amount: 0.3 },
+  },
+  // The Golden City under the three moons: the first angel throws down her crown under the silver tree, the power of
+  // creation runs to the city and its windows light; then the blue nails, far off and silent.
+  hyperborea: {
+    sky: (k) => {
+      const dt = k.t - hbHit(k), lit = dt > 0 ? Math.exp(-dt * 0.55) : 0;
+      return night({ top: hx('#030818'), mid: hx('#0e2038'), hor: hx('#4a6a8a'), horY: 800, stars: 1, neb: 0.25, moons: threeMoons(0),
+        glow: [1290, 780, 420], glowCol: hx('#6ac8ff', 0.8 * lit), clouds: 0.25, cloudY: 480, cloudCol: hx('#1a2a40'), cloudLit: hx('#9fd0ff', 0.25 + 0.7 * lit) });
+    },
+    land: { layers: [
+      LY((c) => S.ridge(c, 810, 90, 420, 71, 0.55), 0.5, hx('#16263c'), hx('#cfe8ff', 0.5), { fog: 0.45, hatch: 0.3 }),
+      LY((c) => S.dunes(c, 884, 14, 600, 5), 1, hx('#0c1626'), hx('#e8f6ff', 0.8), { hatch: 0.35 }),
+    ], light: [1060, 250] },
+    art: (ink, k) => {
+      const hit = hbHit(k), blue = hx('#6ac8ff', 1.7), gold = mul(E.goldHot, 1.3);
+      ink.d = 0.85;
+      // the city, lit from the left as the power reaches it
+      const reach = k.say('凡人');
+      for (const [i, T] of HB_TOWERS.entries()) {
+        const u = k.at(hit + T.delay, 1.7), lit = k.at(reach - 0.4 + (T.x - 800) / 1030 * 2.0, 0.7);
+        goldTower(ink, T.x, 874, T.w, T.h, T.kind, mul(gold, 0.55 + 0.45 * lit), lit, u, T.dir, i + 1, T.al);
+      }
+      const wall = 1 - k.at(hit + 0.2, 1.4);
+      if (wall > 0) { ink.glow(HB_WALL, 1.1, mul(gold, 0.8), wall); ink.seg([770, 874], [1890, 874], 1, mul(gold, 0.5), wall); }
+      // 创生: it flows from her hand to the city
+      const flow = k.at(k.say('创生') - 0.2, 0.7) * (1 - k.at(hit - 0.6, 0.8));
+      if (flow > 0) for (let i = 0; i < 70; i++) {
+        const u = (k.t * 0.42 + hash(i, 83)) % 1, xe = 820 + hash(i, 84) * 960;
+        const P = (q: number): P2 => { const m = 1 - q; return [m * m * 540 + 2 * m * q * 900 + q * q * xe, m * m * 662 + 2 * m * q * (590 + hash(i, 85) * 90) + q * q * 866]; };
+        const al = flow * Math.sin(Math.PI * u);
+        ink.seg(P(u), P(Math.max(0, u - 0.022)), 1.2, gold, al);
+        ink.dot(P(u), 1.8, mul(E.goldHot, 3), al);
+      }
+      // 幽蓝的晶钉: five of them along the horizon, each a ring of cold light, no flash
+      HB_NAILS.forEach(([x, d, tilt]) => {
+        const te = hit + d, u = clamp((k.t - te + 0.85) / 0.85, 0, 1);
+        if (u <= 0) return;
+        const tipY = lerp(-260, 866, ease.inQuad(u));
+        nail(ink, x, tipY - 780, tipY, 12, blue, 1, tilt, { spin: 0.5 * Math.min(k.t, te), body: [0.5, 0.75, 1.15], gem: [0.3, 0.8, 2.8], seed: Math.round(x) });
+        if (k.t < te) ink.glow([[x, tipY - 780], [x, tipY - 1500]], 4, mul(blue, 0.3), 0.5);
+        groundRings(ink, x, 876, k.t, te, blue, 300);
+      });
+      // 冰雾: 妖精们尖啸着化为银白的冰雾. Ice dust rising off the ruins
+      for (let i = 0; i < 220; i++) {
+        const g = k.at(hit + hash(i, 86) * 1.9, 2.6);
+        if (g <= 0) continue;
+        const x = 770 + hash(i, 87) * 1120 + Math.sin(k.t * 0.5 + i) * 14, y = 874 - g * (20 + hash(i, 88) ** 2 * 330);
+        ink.dot([x, y], 0.9 + hash(i, 89) * 1.5, hx('#dff0ff', 1.6), g * (1 - 0.6 * g) * (0.5 + 0.5 * Math.sin(k.t * 3 + i)));
+      }
+      ink.d = 1;
+      // the silver tree and the angel under it
+      const gone = k.at(hit + 0.5, 1.9);
+      drawTree(ink, HB_TREE, k.at(k.seg.start - 0.2, 1.8), hx('#cfe8ff', 1.05), hx('#e8f6ff'), k.t, 1 - 0.6 * gone);
+      const ax = 470, ay = 690, as = 170;
+      angel(ink, ax, ay, as, hx('#e8f4ff'), 1 - gone, k.t, { wing: 0.85, seed: 3 });
+      // 抛下冠冕: the seven-pointed crown falls from her head into the snow, and lies there glinting
+      const drop = k.say('抛下'), u = k.at(drop - 0.1, 1.1), fall = ease.inQuad(u);
+      const cx = lerp(ax, ax + 96, u), cy = lerp(ay - 0.97 * as, 884, fall), squash = lerp(0.34, 0.2 + 0.25 * Math.abs(Math.cos(u * 5)), Math.sin(Math.PI * u));
+      const pts = ellipse(cx, cy, 19, 19 * squash, 28), g2 = 1 - 0.5 * smoothstep(0, 1, u) * (0.5 + 0.5 * Math.sin(k.t * 3));
+      ink.glow([...pts, pts[0]!], 1.4, mul(E.goldHot, 2.2), g2);
+      for (let i = 0; i < 7; i++) { const a = Math.PI + (i / 6) * Math.PI; const p: P2 = [cx + Math.cos(a) * 19, cy + Math.sin(a) * 19 * squash]; ink.glow([p, [p[0], p[1] - 10]], 1.1, mul(E.goldHot, 2.2), g2); ink.dot([p[0], p[1] - 11], 1.6, mul(E.goldHot, 3), g2); }
+      groundRings(ink, ax + 96, 886, k.t, drop + 1.0, E.goldHot, 80);
+    },
+    fx: { kind: 'snow', col: E.bone, amount: 1.1 },
+    post: () => ({ bloom: 0.55 }),
+  },
+  // The angels: the first of them under the arch loses her wings, her kin are branded, they crumble, and what is left of
+  // each is one of the small lights of today. No seelie before that: they are the end of this shot, not its setting.
   seelie: {
     sky: () => ({ top: hx('#060a16'), mid: hx('#18304a'), hor: hx('#406a70'), horY: 760, stars: 0.4, neb: 0.3, nebA: hx('#62d6b8', 0.25), nebB: hx('#2b4ea0', 0.3) }),
     land: { layers: [
@@ -687,18 +989,42 @@ export const PICS: Record<string, PicDef> = {
       LY((c, r) => { S.arch(c, 760, 960, 300, 280, 22); S.arch(c, 1250, 960, 260, 240, 20, 0.7); S.ruins(c, 900, 1500, 960, 120, r); S.ground(c, 950, 8, 3); }, 0.9, hx('#06121a'), hx('#8af0d8', 0.8)),
     ] },
     art: (ink, k) => {
-      for (let i = 0; i < 7; i++) {
-        const ph = i * 1.3;
-        const x = 960 + Math.sin(k.t * 0.37 + ph) * 520 + Math.sin(k.t * 0.9 + ph * 2) * 60;
-        const y = 640 + Math.cos(k.t * 0.29 + ph) * 160;
+      const lost = k.at(k.say('失去') - 0.1, 2), kin = k.say('同族'), brand = k.say('诅咒'), crumble = k.say('崩落'), part = k.L(1);
+      const silver = mixc(E.bone, E.anemo, 0.45);
+      ink.d = 0.9;
+      SEELIE_ANGELS.forEach(([ax, ay, s], i) => {
+        const start = crumble - 0.4 + (i === 0 ? 1.8 : hash(i, 91) * 1.3);      // she goes last: 最后的歌者，最初的仙灵
+        const fall = k.at(start, 2.6);
+        // the figure
+        const al = (i === 0 ? 1 : 0.85 * k.at(kin + i * 0.1, 1)) * (i === 0 ? lerp(1, 0.7, lost) : 1);
+        if (fall < 1 && al > 0) angel(ink, ax, ay, s, mul(silver, i === 0 ? lerp(1.15, 0.65, lost) : 0.7), al, k.t, { wing: i === 0 ? lerp(0.9, 0.08, lost) : 0.15, fall, seed: i + 11 });
+        // the brand of the curse
+        const dt = k.t - (brand + i * 0.07);
+        if (i > 0 && dt > 0 && dt < 2.4) {
+          const p = Math.exp(-dt * 1.8);
+          ink.glow(ellipse(ax, ay - 0.2 * s, 0.26 * s * (1 + (1 - p) * 0.7), 0.26 * s * (1 + (1 - p) * 0.7), 28), 1.3, mul(E.goldHot, 2.4), p, 1, true);
+        }
+        // what is left: a small light that wanders off along its own path; at 天理禁止 they scatter, one stays
+        const g = k.at(start + 1.3, 1.2);
+        if (g <= 0) return;
+        const out = i === 0 ? 0 : k.at(part + 0.2 + i * 0.25, 1.9);
+        if (out >= 1) return;
+        const fly = k.at(start + 1.6, 2.8), ph = i * 1.3;
+        const P = (tt: number): P2 => [lerp(ax, 960 + Math.sin(tt * 0.37 + ph) * 520 + Math.sin(tt * 0.9 + ph * 2) * 60, fly), lerp(ay - 0.2 * s, 640 + Math.cos(tt * 0.29 + ph) * 160, fly)];
         const trail: P2[] = [];
-        for (let s = 0; s <= 12; s++) { const tt = k.t - s * 0.08; trail.push([960 + Math.sin(tt * 0.37 + ph) * 520 + Math.sin(tt * 0.9 + ph * 2) * 60, 640 + Math.cos(tt * 0.29 + ph) * 160]); }
-        ink.poly(trail, 2.2, mul(E.anemo, 0.6), 0.5);
-        ink.dot([x, y], 7, mul(E.anemo, 2.4), 1);
-        ink.dot([x, y], 16, mul(E.anemo, 0.25), 1);
-      }
+        for (let q = 0; q <= 12; q++) trail.push(P(k.t - q * 0.08));
+        const a = g * (1 - out);
+        ink.poly(trail, 2.2, mul(E.anemo, 0.6), 0.5 * a * fly);
+        ink.dot(P(k.t), 7 * (1 - 0.4 * out), mul(E.anemo, 2.4), a);
+        ink.dot(P(k.t), 16 * (1 - 0.4 * out), mul(E.anemo, 0.25), a);
+      });
+      ink.d = 1;
     },
-    fx: { kind: 'motes', col: E.anemo, amount: 0.8 },
+    fx: { kind: 'motes', col: E.anemo, amount: 0.25 },
+    ui: (c, k) => {
+      const d = k.at(k.L(1), 3.4);
+      if (d > 0) { c.globalAlpha = k.w * d * 0.42; c.fillStyle = '#04070e'; c.fillRect(0, 0, 1920, 1080); c.globalAlpha = 1; }
+    },
   },
   khaenriah: {
     sky: () => ({ top: hx('#010204'), mid: hx('#060c18'), hor: hx('#18263a'), horY: 900, stars: 0, neb: 0.5, nebA: hx('#2a3a5a', 0.4), nebB: hx('#3a2a1a', 0.3), glow: [960, 760, 400], glowCol: hx('#f2b54a', 0.35) }),
@@ -871,7 +1197,7 @@ export const PICS: Record<string, PicDef> = {
       return { el, x: 960 + Math.cos(a) * 340, y: 500 + Math.sin(a) * 340, size: 150, rev: k.at(k.seg.start + 1.2 + i * 0.45, 1.3), glow: 1 + 0.2 * Math.sin(k.t * 1.3 + i * 0.9) };
     }),
     ui: (c, k) => {
-      const N: [string, string][] = [['蒙德', '巴巴托斯'], ['璃月', '摩拉克斯'], ['稻妻', '巴尔'], ['须弥', '大慈树王'], ['枫丹', '厄歌莉娅'], ['纳塔', '希巴拉克'], ['至冬', '冰神']];
+      const N: [string, string][] = [['蒙德', '巴巴托斯'], ['璃月', '摩拉克斯'], ['稻妻', '巴尔'], ['须弥', '大慈树王'], ['枫丹', '厄歌莉娅'], ['纳塔', '希巴拉克'], ['至冬', '莫诺马赫']];
       N.forEach(([n, g], i) => {
         const a = -Math.PI / 2 + i * Math.PI * 2 / 7;
         const [x, y] = project(k.cam, 960 + Math.cos(a) * 470, 500 + Math.sin(a) * 455, 1);

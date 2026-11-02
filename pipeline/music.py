@@ -252,10 +252,11 @@ def line_start(chap: str, plate: str, i: int) -> float:
     raise KeyError(plate)
 
 
-def said(chap: str, s: str) -> float:
-    """When the narration of a chapter says `s`: its first character's word time (data/lyrics.json)."""
+def said(chap: str, s: str, after: float = 0.0) -> float:
+    """When the narration of a chapter says `s` (the first time after `after`): its first character's word time
+    (data/lyrics.json)."""
     for cue in CUES:
-        if cue.get('chapter') != chap:
+        if cue.get('chapter') != chap or cue['words'][-1]['end'] <= after:
             continue
         at = [w for w in cue['words'] for _ in w['w']]
         j = ''.join(w['w'] for w in cue['words']).find(s)
@@ -308,6 +309,14 @@ def build():
     for k in range(6):
         bell(D5 + (-1, 3, -5, 2, -8, 0)[k], sh - 0.4 + k * 0.45, gain=0.05, ratio=1.41, index=3, decay=4, pan=(k % 2 - 0.5))
     boom(sh - 0.5, gain=0.25)
+    # the moons put back together: the same bells, backwards
+    rw = shot_start('flame', 'rewind')
+    for k in range(6):
+        bell(D5 + (0, -8, 2, -5, 3, -1)[k], rw + 0.9 + k * 0.62, gain=0.035, ratio=1.41, index=3, decay=3, pan=(k % 2 - 0.5))
+    # the blue nails on the Golden City: far off, dull thuds (the shot above has the loud nail); as hyperborea's HB_NAILS
+    hb = said('flame', '天钉', shot_start('flame', 'hyperborea')) + 0.7
+    for d, g in ((0, 0.2), (0.3, 0.1), (0.55, 0.14), (0.85, 0.08), (1.1, 0.08)):
+        boom(hb + d, gain=g, long=3)
     # ---- IV the Archon War: epic pulse
     c = CH['archonwar']; card(c)
     drone(D2, c['start'], c['end'] - c['start'], gain=0.07)

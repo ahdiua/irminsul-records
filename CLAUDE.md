@@ -1,6 +1,6 @@
 # Teyvat Chronicle — working notes
 
-《提瓦特编年史》: a ~13.8 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
+《提瓦特编年史》: a ~15.7 min Chinese-narrated lore chronicle of Genshin Impact's Teyvat, from the
 dragon age to Snezhnaya (7.0). Everything on screen is code-rendered: **no AI-generated images, no game assets**.
 Exceptions, at the user's request: the seven element emblems come from the vector file the user supplied
 (`app/src/scenes/elements.svg`), so they match the game's icons; and every text is set in the game's typeface,
@@ -45,7 +45,8 @@ earlier abandoned attempt).
   - QA: `qa_audio.py <wav> <png>` (spectrogram + loudness with chapter lines), `sheet.py <dir>` (contact sheet),
     `qa_tts.py` (STT of every take diffed against the script in pinyin; run after any TTS change; `--retake` reads
     differing lines again in context and keeps the closest — on the first chunked read 15 of 16 cleared, i.e. they
-    were real misreads). STT stays on OpenRouter (`microsoft/mai-transcribe-2`, key `$env:OR_API`, never printed) —
+    were real misreads; its diff is toneless and ignores pace, so 亥 read as 海 passed: `retake.py` reads one line
+    several times and measures pace, stalls and a syllable's pitch, keeping every take in `build/tts/cand/`). STT stays on OpenRouter (`microsoft/mai-transcribe-2`, key `$env:OR_API`, never printed) —
     the user's choice. Takes of >3 lines are kept in `build/tts/takes/`: `tts.py --recut <takes>` re-cuts them
     without API calls (cut() moves a cut beside a failing line to the pause that aligns both lines best).
 - `app/src/scenes/` — one scene for the whole film (`chronicle.ts`, every chapter entry shares one `Film`):
@@ -86,7 +87,8 @@ After changing the script: tts → assemble → fonts → music → mix (times m
 WebFetch cannot reach Fandom (Cloudflare) or archive.org; use the Chrome DevTools MCP on
 `https://web.archive.org/web/2026id_/https://genshin-impact.fandom.com/wiki/<Page>`. Chinese names: check against the
 game text, in this order: 米游社观测枢 (official; from its tab, `fetch` `api-static.mihoyo.com/common/blackboard/ys_obc/v1/
-search/content?app_sn=ys_obc&keyword=…` and `…/content/info?app_sn=ys_obc&content_id=…`), BWIKI (from its tab,
+search/content?app_sn=ys_obc&keyword=…` and `…/content/info?app_sn=ys_obc&content_id=…`; newer pages answer 内容不存在 there:
+`act-api-takumi-static.mihoyo.com/hoyowiki/genshin/wapi/entry_page?app_sn=ys_obc&entry_page_id=…&lang=zh-cn`), BWIKI (from its tab,
 `/ys/api.php` search / `action=parse` works; unquoted search terms only, ~1 req/s), 萌娘百科 (no API or `action=raw`;
 fetch page HTML from a moegirl tab, the body is inside `<template id="MOE_SKIN_TEMPLATE_BODYCONTENT">`; fast requests hit
 Cloudflare; it has errors, though not where it seems: the last king's full name IS 伊尔明苏尔, same as the tree,

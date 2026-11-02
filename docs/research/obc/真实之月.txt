@@ -1,0 +1,4 @@
+# 真实之月
+# captured 2026-11-02 from 米游社观测枢
+
+ERR {"data":null,"message":"内容不存在o(╥﹏╥)o","retcode":-2010}

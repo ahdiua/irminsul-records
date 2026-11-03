@@ -76,7 +76,9 @@ cd app; bunx tsc --noEmit -p .
 $env:PDOOM_NO_HMR=1; bunx --bun vite --port 5190 --strictPort --host 127.0.0.1     # keep one running: render.ts's
                                                                                   # private server times out here
 bun scripts/render.ts stills --url http://127.0.0.1:5190 --t 58.4,122.5 --out ../out/wip/x
-pwsh -File pipeline/render_final.ps1      # 4K60 HEVC Main10 NVENC, 4 parallel quarters -> out/teyvat-chronicle-4k.mp4 (~45 min)
+pwsh -File pipeline/render_final.ps1 [-Url http://127.0.0.1:5191]   # 4K60 HEVC Main10 NVENC, 4 parallel quarters
+                                          # -> out/teyvat-chronicle-4k.mp4 (~48 min); refuses a server that isn't this
+                                          # app's (other projects' Vites take 5190 too: one got rendered, 2026-11-03)
 $env:PDOOM_URL='http://127.0.0.1:5190'; bun scripts/cover.ts   # the title card (世界树档案, the film's own since 2026-10-30) -> out/cover.jpg, cover-4k.png
 ```
 The finished film is the 4K render only: the user wants no 1080p version of it (2026-10-28).

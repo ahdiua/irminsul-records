@@ -1,7 +1,14 @@
 # Final render: true 4K60, HEVC Main10 (sharp: no motion blur, no grain), in 4 parallel segments, then a
 # lossless concat with the sound. Needs the no-HMR Vite on 5190 (see CLAUDE.md).
-# usage (from the repo root):  pwsh -File pipeline/render_final.ps1
+# usage (from the repo root):  pwsh -File pipeline/render_final.ps1 [-Url http://127.0.0.1:5191]
+param([string]$Url = 'http://127.0.0.1:5190')
 $ErrorActionPreference = 'Stop'
+# The server must be THIS app's Vite: another project's Vite on the port renders that project (2026-11-03, a whole
+# 4K run of 1pct-Battery-Girl). Vite answers any path 200 (an HTML fallback), so check the module itself.
+$probe = try { Invoke-WebRequest "$Url/src/scenes/chronicle.ts" -UseBasicParsing -TimeoutSec 30 } catch { $null }
+if (-not $probe -or $probe.Headers['Content-Type'] -notmatch 'javascript' -or $probe.Content -notmatch 'segmentAt') {
+  throw "$Url is not this app's Vite (no src/scenes/chronicle.ts there); start one from app/ (see CLAUDE.md)"
+}
 $root = Split-Path $PSScriptRoot -Parent
 $app = Join-Path $root 'app'
 $out = Join-Path $root 'out'
@@ -13,7 +20,7 @@ for ($k = 0; $k -lt 4; $k++) {
   $seg = Join-Path $out "seg4k_$k.mp4"
   $log = Join-Path $out "seg4k_$k.log"
   $jobs += Start-Process -FilePath bun -WorkingDirectory $app -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError "$log.err" -ArgumentList @(
-    'scripts/render.ts', 'video', '--url', 'http://127.0.0.1:5190', '--scale', '2', '--samples', '1', '--no-grain',
+    'scripts/render.ts', 'video', '--url', $Url, '--scale', '2', '--samples', '1', '--no-grain',
     '--codec', 'hevc_nvenc', '--cq', '18', '--maxrate', '32M', '--10bit', '--from', "$a", '--to', "$b", '--noaudio', '--out', $seg)
 }
 $jobs | Wait-Process
